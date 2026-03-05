@@ -5,6 +5,7 @@ export default function Auth() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [isLogin, setIsLogin] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -18,7 +19,6 @@ export default function Auth() {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setError(error.message)
     } else {
-      // Check username not taken
       const { data: existing } = await supabase
         .from('profiles')
         .select('username')
@@ -35,11 +35,13 @@ export default function Auth() {
       if (error) {
         setError(error.message)
       } else if (data.user) {
-        // Update profile with chosen username
-        await supabase.from('profiles').update({
-          username,
-          display_name: username
-        }).eq('id', data.user.id)
+        await supabase.from('profiles').upsert({
+          id: data.user.id,
+          username: username,
+          display_name: displayName || username
+        })
+        alert('Account created! You can now sign in.')
+        setIsLogin(true)
       }
     }
     setLoading(false)
@@ -53,13 +55,22 @@ export default function Auth() {
 
         <form onSubmit={handleSubmit} style={styles.form}>
           {!isLogin && (
-            <input
-              style={styles.input}
-              placeholder="Username"
-              value={username}
-              onChange={e => setUsername(e.target.value.toLowerCase().replace(/\s/g,''))}
-              required
-            />
+            <>
+              <input
+                style={styles.input}
+                placeholder="Username (e.g. mariasheikh — no spaces)"
+                value={username}
+                onChange={e => setUsername(e.target.value.toLowerCase().replace(/\s/g,''))}
+                required
+              />
+              <input
+                style={styles.input}
+                placeholder="Display name (e.g. Maria Sheikh)"
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                required
+              />
+            </>
           )}
           <input
             style={styles.input}
@@ -96,7 +107,7 @@ export default function Auth() {
 
 const styles = {
   wrap: { minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#000', padding:'20px' },
-  card: { width:'100%', maxWidth:'360px', display:'flex', flexDirection:'column', alignItems:'center', gap:'0' },
+  card: { width:'100%', maxWidth:'360px', display:'flex', flexDirection:'column', alignItems:'center' },
   logo: { fontFamily:'Georgia, serif', fontSize:'56px', fontWeight:'900', letterSpacing:'-2px', background:'linear-gradient(135deg,#fff,#e0d0ff,#ffb8cc)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', marginBottom:'8px' },
   sub: { color:'rgba(255,255,255,.4)', fontSize:'15px', marginBottom:'36px', textAlign:'center' },
   form: { width:'100%', display:'flex', flexDirection:'column', gap:'10px', marginBottom:'16px' },

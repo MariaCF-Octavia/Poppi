@@ -9,6 +9,7 @@ export default function Room({ session }) {
   const [messages, setMessages] = useState([])
   const [newMsg, setNewMsg] = useState('')
   const [profile, setProfile] = useState(null)
+  const [members, setMembers] = useState({})
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -16,7 +17,6 @@ export default function Room({ session }) {
     fetchMessages()
     fetchProfile()
 
-    // Subscribe to new messages in real time
     const channel = supabase
       .channel(`room-${id}`)
       .on('postgres_changes', {
@@ -24,8 +24,14 @@ export default function Room({ session }) {
         schema: 'public',
         table: 'messages',
         filter: `room_id=eq.${id}`
-      }, payload => {
-        setMessages(prev => [...prev, payload.new])
+      }, async payload => {
+        // Fetch the profile for this new message
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('username, display_name, avatar_url')
+          .eq('id', payload.new.user_id)
+          .single()
+        setMessages(prev => [...prev, { ...payload.new, profiles: prof }])
       })
       .subscribe()
 
@@ -75,11 +81,14 @@ export default function Room({ session }) {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
-  if (!room) return <div style={{background:'#000',height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'white'}}>Loading...</div>
+  if (!room) return (
+    <div style={{background:'#000',height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'white'}}>
+      Loading...
+    </div>
+  )
 
   return (
     <div style={s.wrap}>
-      {/* Header */}
       <div style={s.header}>
         <button style={s.back} onClick={() => navigate('/')}>←</button>
         <div style={s.roomAv}>{room.name.charAt(0).toUpperCase()}</div>
@@ -90,34 +99,45 @@ export default function Room({ session }) {
         <div style={s.livePill}>Live</div>
       </div>
 
-      {/* Messages */}
       <div style={s.msgs}>
-        {messages.map((msg, i) => {
+        {messages.length === 0 && (
+          <div style={s.empty}>No messages yet. Say something.</div>
+        )}
+        {messages.map((msg) => {
           const isOwn = msg.user_id === session.user.id
           const name = msg.profiles?.display_name || msg.profiles?.username || 'Unknown'
           const initial = name.charAt(0).toUpperCase()
           return (
             <div key={msg.id} style={{...s.msgRow, flexDirection: isOwn ? 'row-reverse' : 'row'}}>
-              <div style={s.msgAv}>{initial}</div>
+              <div style={{
+                ...s.msgAv,
+                background: isOwn ? 'linear-gradient(135deg,#b81840,#e8547a)' : '#2a2a2a'
+              }}>
+                {msg.profiles?.avatar_url
+                  ? <img src={msg.profiles.avatar_url} style={{width:'100%',height:'100%',borderRadius:'50%',objectFit:'cover'}} />
+                  : initial
+                }
+              </div>
               <div style={{maxWidth:'75%'}}>
                 <div style={{...s.msgMeta, justifyContent: isOwn ? 'flex-end' : 'flex-start'}}>
                   <span style={s.msgName}>{isOwn ? 'You' : name}</span>
                   <span style={s.msgTime}>{formatTime(msg.created_at)}</span>
                 </div>
-                <div style={{...s.bubble, background: isOwn ? 'linear-gradient(135deg,#b81840,#e8547a)' : '#1a1a1a', borderTopLeftRadius: isOwn ? 14 : 3, borderTopRightRadius: isOwn ? 3 : 14}}>
+                <div style={{
+                  ...s.bubble,
+                  background: isOwn ? 'linear-gradient(135deg,#b81840,#e8547a)' : '#1a1a1a',
+                  borderTopLeftRadius: isOwn ? 14 : 3,
+                  borderTopRightRadius: isOwn ? 3 : 14
+                }}>
                   {msg.content}
                 </div>
               </div>
             </div>
           )
         })}
-        {messages.length === 0 && (
-          <div style={s.empty}>No messages yet. Say something.</div>
-        )}
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
       <form style={s.inputWrap} onSubmit={sendMessage}>
         <input
           style={s.input}
@@ -127,7 +147,10 @@ export default function Room({ session }) {
           autoComplete="off"
         />
         <button style={s.sendBtn} type="submit" disabled={!newMsg.trim()}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
         </button>
       </form>
     </div>
@@ -144,7 +167,7 @@ const s = {
   livePill: { marginLeft:'auto', fontSize:'10px', fontWeight:'700', letterSpacing:'.08em', color:'#e8547a', background:'rgba(232,84,122,.12)', border:'1px solid rgba(232,84,122,.25)', padding:'4px 10px', borderRadius:'20px' },
   msgs: { flex:1, overflowY:'auto', padding:'14px', display:'flex', flexDirection:'column', gap:'12px' },
   msgRow: { display:'flex', gap:'8px', alignItems:'flex-start' },
-  msgAv: { width:'30px', height:'30px', borderRadius:'50%', background:'#2a2a2a', border:'1px solid rgba(255,255,255,.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', fontWeight:'700', flexShrink:0 },
+  msgAv: { width:'30px', height:'30px', borderRadius:'50%', border:'1px solid rgba(255,255,255,.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', fontWeight:'700', flexShrink:0, overflow:'hidden' },
   msgMeta: { display:'flex', alignItems:'baseline', gap:'6px', marginBottom:'4px' },
   msgName: { fontSize:'12px', fontWeight:'600' },
   msgTime: { fontSize:'10px', color:'rgba(255,255,255,.3)', fontFamily:'monospace' },
