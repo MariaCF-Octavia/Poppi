@@ -10,6 +10,8 @@ export default function Home({ session }) {
   const [roomTopic, setRoomTopic] = useState('')
   const [isPrivate, setIsPrivate] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [search, setSearch] = useState('')
+  const [deleting, setDeleting] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -71,11 +73,41 @@ export default function Home({ session }) {
 
   async function deleteRoom(e, room) {
     e.stopPropagation()
+    e.preventDefault()
     if (!confirm(`Delete "${room.name}"? This cannot be undone.`)) return
-    await supabase.from('messages').delete().eq('room_id', room.id)
-    await supabase.from('room_members').delete().eq('room_id', room.id)
-    await supabase.from('rooms').delete().eq('id', room.id)
-    fetchRooms()
+    setDeleting(room.id)
+    try {
+      // Delete in order: messages first, then members, then room
+      const { error: msgErr } = await supabase
+        .from('messages')
+        .delete()
+        .eq('room_id', room.id)
+      if (msgErr) console.error('msg delete error:', msgErr)
+
+      const { error: memErr } = await supabase
+        .from('room_members')
+        .delete()
+        .eq('room_id', room.id)
+      if (memErr) console.error('member delete error:', memErr)
+
+      const { error: roomErr } = await supabase
+        .from('rooms')
+        .delete()
+        .eq('id', room.id)
+      if (roomErr) {
+        console.error('room delete error:', roomErr)
+        alert('Could not delete room. Make sure the SQL policies were applied in Supabase.')
+      } else {
+        setRooms(prev => prev.filter(r => r.id !== room.id))
+        setRoomPreviews(prev => {
+          const next = {...prev}
+          delete next[room.id]
+          return next
+        })
+      }
+    } finally {
+      setDeleting(null)
+    }
   }
 
   async function joinRoom(room) {
@@ -97,8 +129,13 @@ export default function Home({ session }) {
     return colors[Math.abs(hash) % colors.length]
   }
 
-  const publicRooms = rooms.filter(r => !r.is_private)
-  const privateRooms = rooms.filter(r => r.is_private)
+  const filtered = rooms.filter(r =>
+    r.name.toLowerCase().includes(search.toLowerCase()) ||
+    (r.topic || '').toLowerCase().includes(search.toLowerCase())
+  )
+  const publicRooms = filtered.filter(r => !r.is_private)
+  const privateRooms = filtered.filter(r => r.is_private)
+  const noResults = search.length > 0 && filtered.length === 0
 
   return (
     <div style={s.wrap}>
@@ -108,6 +145,24 @@ export default function Home({ session }) {
         <div style={s.hrow}>
           <button style={s.createBtn} onClick={() => setShowCreate(true)}>+ Room</button>
           <button style={s.outBtn} onClick={signOut}>Sign out</button>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div style={s.searchWrap}>
+        <div style={s.searchInner}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.3)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            style={s.searchInput}
+            placeholder="Search rooms..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && (
+            <button style={s.clearBtn} onClick={() => setSearch('')}>✕</button>
+          )}
         </div>
       </div>
 
@@ -127,7 +182,7 @@ export default function Home({ session }) {
               />
               <textarea
                 style={{...s.input, minHeight:'80px', resize:'vertical', lineHeight:1.5}}
-                placeholder="What's this room about? Set the topic... (optional)"
+                placeholder="What's this room about? (optional)"
                 value={roomTopic}
                 onChange={e => setRoomTopic(e.target.value)}
               />
@@ -153,13 +208,38 @@ export default function Home({ session }) {
 
       {/* Feed */}
       <div style={s.list}>
+
+        {/* No search results */}
+        {noResults && (
+          <div style={s.noResults}>
+            <div style={{fontSize:'28px', marginBottom:'10px'}}>🔍</div>
+            <div style={{fontWeight:'700', marginBottom:'6px'}}>No rooms found for "{search}"</div>
+            <div style={{color:'rgba(255,255,255,.35)', fontSize:'13px', marginBottom:'16px'}}>
+              This conversation doesn't exist yet.
+            </div>
+            <button
+              style={s.createTopicBtn}
+              onClick={() => {
+                setRoomName(search)
+                setSearch('')
+                setShowCreate(true)
+              }}
+            >
+              + Create a room for "{search}"
+            </button>
+          </div>
+        )}
+
         {publicRooms.length > 0 && (
           <>
-            <div style={s.sectionLabel}>LIVE ROOMS</div>
+            <div style={s.sectionLabel}>
+              {search ? `RESULTS` : 'LIVE ROOMS'}
+            </div>
             {publicRooms.map(room => {
               const preview = roomPreviews[room.id]
+              const isDeleting = deleting === room.id
               return (
-                <div key={room.id} style={s.card}>
+                <div key={room.id} style={{...s.card, opacity: isDeleting ? 0.5 : 1}}>
                   <div
                     style={{...s.cardAv, background: getAvatarColor(room.name)}}
                     onClick={() => joinRoom(room)}
@@ -177,14 +257,22 @@ export default function Home({ session }) {
                     {preview ? (
                       <div style={s.cardPreview}>
                         <span style={s.previewName}>{preview.name}: </span>
-                        <span style={s.previewText}>{preview.text.length > 80 ? preview.text.slice(0, 80) + '…' : preview.text}</span>
+                        <span style={s.previewText}>
+                          {preview.text.length > 80 ? preview.text.slice(0, 80) + '…' : preview.text}
+                        </span>
                       </div>
                     ) : (
                       <div style={s.cardMeta}>Be the first to say something</div>
                     )}
                   </div>
                   {room.owner_id === session.user.id && (
-                    <button style={s.deleteBtn} onClick={e => deleteRoom(e, room)}>✕</button>
+                    <button
+                      style={s.deleteBtn}
+                      onClick={e => deleteRoom(e, room)}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? '…' : '✕'}
+                    </button>
                   )}
                 </div>
               )
@@ -197,8 +285,9 @@ export default function Home({ session }) {
             <div style={{...s.sectionLabel, marginTop:'24px'}}>YOUR PRIVATE ROOMS</div>
             {privateRooms.map(room => {
               const preview = roomPreviews[room.id]
+              const isDeleting = deleting === room.id
               return (
-                <div key={room.id} style={{...s.card, borderColor:'rgba(255,255,255,.05)'}}>
+                <div key={room.id} style={{...s.card, borderColor:'rgba(255,255,255,.05)', opacity: isDeleting ? 0.5 : 1}}>
                   <div
                     style={{...s.cardAv, background:'#1a1a1a', border:'1px solid rgba(255,255,255,.1)'}}
                     onClick={() => joinRoom(room)}
@@ -206,18 +295,31 @@ export default function Home({ session }) {
                     🔒
                   </div>
                   <div style={s.cardInfo} onClick={() => joinRoom(room)}>
-                    <div style={s.cardName}>{room.name}</div>
+                    <div style={s.cardNameRow}>
+                      <div style={s.cardName}>{room.name}</div>
+                    </div>
+                    {room.topic && (
+                      <div style={s.cardTopic}>{room.topic}</div>
+                    )}
                     {preview ? (
                       <div style={s.cardPreview}>
                         <span style={s.previewName}>{preview.name}: </span>
-                        <span style={s.previewText}>{preview.text.length > 80 ? preview.text.slice(0, 80) + '…' : preview.text}</span>
+                        <span style={s.previewText}>
+                          {preview.text.length > 80 ? preview.text.slice(0, 80) + '…' : preview.text}
+                        </span>
                       </div>
                     ) : (
                       <div style={s.cardMeta}>Private · invite only</div>
                     )}
                   </div>
                   {room.owner_id === session.user.id && (
-                    <button style={s.deleteBtn} onClick={e => deleteRoom(e, room)}>✕</button>
+                    <button
+                      style={s.deleteBtn}
+                      onClick={e => deleteRoom(e, room)}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? '…' : '✕'}
+                    </button>
                   )}
                 </div>
               )
@@ -225,7 +327,7 @@ export default function Home({ session }) {
           </>
         )}
 
-        {rooms.length === 0 && (
+        {rooms.length === 0 && !search && (
           <div style={s.empty}>
             <div style={{fontSize:'32px', marginBottom:'12px'}}>👋</div>
             <div style={{fontWeight:'700', marginBottom:'6px'}}>No rooms yet</div>
@@ -244,6 +346,10 @@ const s = {
   hrow: { display:'flex', gap:'8px' },
   createBtn: { padding:'8px 16px', background:'linear-gradient(135deg,#c02048,#e8547a)', border:'none', borderRadius:'10px', color:'#fff', fontSize:'13px', fontWeight:'700', cursor:'pointer', fontFamily:'inherit' },
   outBtn: { padding:'8px 16px', background:'transparent', border:'1px solid rgba(255,255,255,.1)', borderRadius:'10px', color:'rgba(255,255,255,.4)', fontSize:'13px', cursor:'pointer', fontFamily:'inherit' },
+  searchWrap: { padding:'12px 16px 8px', position:'sticky', top:'57px', background:'#000', zIndex:9 },
+  searchInner: { display:'flex', alignItems:'center', gap:'8px', background:'#111', border:'1px solid rgba(255,255,255,.08)', borderRadius:'12px', padding:'10px 14px' },
+  searchInput: { flex:1, background:'none', border:'none', outline:'none', color:'#fff', fontSize:'14px', fontFamily:'inherit' },
+  clearBtn: { background:'none', border:'none', color:'rgba(255,255,255,.3)', cursor:'pointer', fontSize:'11px', padding:'0', fontFamily:'inherit' },
   overlay: { position:'fixed', inset:0, background:'rgba(0,0,0,.85)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100, padding:'20px' },
   modal: { width:'100%', maxWidth:'380px', background:'#111', border:'1px solid rgba(255,255,255,.1)', borderRadius:'18px', padding:'24px' },
   modalTitle: { fontSize:'20px', fontWeight:'700', marginBottom:'20px' },
@@ -254,8 +360,10 @@ const s = {
   cancelBtn: { padding:'13px', background:'transparent', border:'1px solid rgba(255,255,255,.1)', borderRadius:'12px', color:'rgba(255,255,255,.4)', fontSize:'14px', cursor:'pointer', fontFamily:'inherit' },
   list: { padding:'16px' },
   sectionLabel: { fontSize:'10px', letterSpacing:'.1em', color:'rgba(255,255,255,.28)', marginBottom:'10px', fontFamily:'monospace' },
+  noResults: { textAlign:'center', padding:'40px 20px', color:'#fff' },
+  createTopicBtn: { padding:'12px 20px', background:'linear-gradient(135deg,#c02048,#e8547a)', border:'none', borderRadius:'12px', color:'#fff', fontSize:'14px', fontWeight:'700', cursor:'pointer', fontFamily:'inherit' },
   empty: { textAlign:'center', padding:'60px 20px', color:'#fff' },
-  card: { display:'flex', alignItems:'flex-start', gap:'12px', padding:'14px', background:'#0a0a0a', border:'1px solid rgba(255,255,255,.08)', borderRadius:'16px', marginBottom:'10px' },
+  card: { display:'flex', alignItems:'flex-start', gap:'12px', padding:'14px', background:'#0a0a0a', border:'1px solid rgba(255,255,255,.08)', borderRadius:'16px', marginBottom:'10px', transition:'opacity .2s' },
   cardAv: { width:'46px', height:'46px', borderRadius:'13px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'20px', fontWeight:'800', flexShrink:0, color:'rgba(255,255,255,.9)', cursor:'pointer' },
   cardInfo: { flex:1, minWidth:0, cursor:'pointer' },
   cardNameRow: { display:'flex', alignItems:'center', gap:'8px', marginBottom:'3px' },
@@ -266,6 +374,5 @@ const s = {
   previewName: { color:'#e8547a', fontWeight:'600' },
   previewText: { color:'rgba(255,255,255,.45)' },
   cardMeta: { fontSize:'12px', color:'rgba(255,255,255,.3)' },
-  cardArr: { color:'rgba(255,255,255,.2)', fontSize:'20px', paddingTop:'2px' },
   deleteBtn: { background:'rgba(255,255,255,.05)', border:'1px solid rgba(255,255,255,.08)', color:'rgba(255,255,255,.3)', width:'28px', height:'28px', borderRadius:'8px', cursor:'pointer', fontSize:'11px', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontFamily:'inherit' },
 }
