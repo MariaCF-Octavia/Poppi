@@ -9,6 +9,21 @@ const BOT_IDS = {
   jay:    '00000000-0000-0000-0000-000000000003',
   amira:  '00000000-0000-0000-0000-000000000004',
   kezia:  '00000000-0000-0000-0000-000000000005',
+  dami:   '00000000-0000-0000-0000-000000000006',
+  theo:   '00000000-0000-0000-0000-000000000007',
+  yemi:   '00000000-0000-0000-0000-000000000008',
+  priya:  '00000000-0000-0000-0000-000000000009',
+  sol:    '00000000-0000-0000-0000-000000000010',
+  bex:    '00000000-0000-0000-0000-000000000011',
+  kofi:   '00000000-0000-0000-0000-000000000012',
+  nadia:  '00000000-0000-0000-0000-000000000013',
+  rio:    '00000000-0000-0000-0000-000000000014',
+  cass:   '00000000-0000-0000-0000-000000000015',
+  ife:    '00000000-0000-0000-0000-000000000016',
+  dan:    '00000000-0000-0000-0000-000000000017',
+  sara:   '00000000-0000-0000-0000-000000000018',
+  luca:   '00000000-0000-0000-0000-000000000019',
+  nova:   '00000000-0000-0000-0000-000000000020',
 }
 
 export default function Room({ session }) {
@@ -17,15 +32,15 @@ export default function Room({ session }) {
   const [room, setRoom] = useState(null)
   const [messages, setMessages] = useState([])
   const [newMsg, setNewMsg] = useState('')
-  const [profile, setProfile] = useState(null)
   const [seeded, setSeeded] = useState(false)
   const bottomRef = useRef(null)
   const messagesRef = useRef([])
+  const roomNameRef = useRef(null)
+  const seededRef = useRef(false)
 
   useEffect(() => {
     fetchRoom()
     fetchMessages()
-    fetchProfile()
 
     const channel = supabase
       .channel(`room-${id}`)
@@ -42,22 +57,23 @@ export default function Room({ session }) {
           .single()
         const fullMsg = { ...payload.new, profiles: prof }
         setMessages(prev => {
+          // Prevent duplicates
+          if (prev.find(m => m.id === fullMsg.id)) return prev
           const updated = [...prev, fullMsg]
           messagesRef.current = updated
           return updated
         })
 
-        // Only trigger bot response for real users
         const botUsernames = Object.values(BOTS).map(b => b.username)
         const isBot = botUsernames.includes(prof?.username)
-        if (!isBot && room) {
-          triggerBotResponse(room.name, id, messagesRef.current, fullMsg)
+        if (!isBot && roomNameRef.current) {
+          triggerBotResponse(roomNameRef.current, id, messagesRef.current, fullMsg)
         }
       })
       .subscribe()
 
     return () => supabase.removeChannel(channel)
-  }, [id, room])
+  }, [id]) // ← only [id], not [id, room]
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -66,6 +82,7 @@ export default function Room({ session }) {
   async function fetchRoom() {
     const { data } = await supabase.from('rooms').select('*').eq('id', id).single()
     setRoom(data)
+    roomNameRef.current = data?.name
   }
 
   async function fetchMessages() {
@@ -80,29 +97,22 @@ export default function Room({ session }) {
       messagesRef.current = data
       if (data.length === 0) {
         setSeeded(false)
+        seededRef.current = false
       } else {
         setSeeded(true)
+        seededRef.current = true
       }
     }
   }
 
-  async function fetchProfile() {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .single()
-    setProfile(data)
-  }
-
   useEffect(() => {
-    if (room && !seeded && messages.length === 0) {
+    if (room && !seeded && messages.length === 0 && !seededRef.current) {
+      seededRef.current = true
       seedRoom()
     }
   }, [room, seeded, messages.length])
 
   async function seedRoom() {
-    setSeeded(true)
     const seeds = SEED_MESSAGES[room.name]
     if (!seeds) return
 
@@ -110,22 +120,15 @@ export default function Room({ session }) {
       const seed = seeds[i]
       const bot = BOTS[seed.bot]
       if (!bot) continue
-
-      const botUserId = getOrCreateBot(bot)
+      const botUserId = BOT_IDS[bot.username]
       if (!botUserId) continue
-
-      await new Promise(r => setTimeout(r, 800 * i))
-
+      await new Promise(r => setTimeout(r, 900 * i))
       await supabase.from('messages').insert({
         room_id: id,
         user_id: botUserId,
         content: seed.text
       })
     }
-  }
-
-  function getOrCreateBot(bot) {
-    return BOT_IDS[bot.username] || null
   }
 
   async function sendMessage(e) {
@@ -163,12 +166,20 @@ export default function Room({ session }) {
         <div style={{...s.roomAv, background: getAvatarColor(room.name)}}>
           {room.name.charAt(0).toUpperCase()}
         </div>
-        <div>
+        <div style={{flex:1}}>
           <div style={s.roomName}>{room.name}</div>
           <div style={s.roomSub}>{room.is_private ? 'Private room' : 'Public room'}</div>
         </div>
         <div style={s.livePill}>Live</div>
       </div>
+
+      {/* Topic pin */}
+      {room.topic && (
+        <div style={s.topicPin}>
+          <div style={s.topicLabel}>📌 Topic</div>
+          <div style={s.topicText}>{room.topic}</div>
+        </div>
+      )}
 
       <div style={s.msgs}>
         {messages.length === 0 && (
@@ -235,7 +246,10 @@ const s = {
   roomAv: { width:'36px', height:'36px', borderRadius:'10px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'16px', fontWeight:'800', flexShrink:0, color:'rgba(255,255,255,.9)' },
   roomName: { fontSize:'15px', fontWeight:'700' },
   roomSub: { fontSize:'11px', color:'rgba(255,255,255,.35)' },
-  livePill: { marginLeft:'auto', fontSize:'10px', fontWeight:'700', letterSpacing:'.08em', color:'#e8547a', background:'rgba(232,84,122,.12)', border:'1px solid rgba(232,84,122,.25)', padding:'4px 10px', borderRadius:'20px' },
+  livePill: { fontSize:'10px', fontWeight:'700', letterSpacing:'.08em', color:'#e8547a', background:'rgba(232,84,122,.12)', border:'1px solid rgba(232,84,122,.25)', padding:'4px 10px', borderRadius:'20px', flexShrink:0 },
+  topicPin: { flexShrink:0, padding:'10px 16px', background:'rgba(255,255,255,.03)', borderBottom:'1px solid rgba(255,255,255,.06)' },
+  topicLabel: { fontSize:'10px', color:'rgba(255,255,255,.3)', letterSpacing:'.06em', marginBottom:'3px' },
+  topicText: { fontSize:'13px', color:'rgba(255,255,255,.7)', lineHeight:1.4 },
   msgs: { flex:1, overflowY:'auto', padding:'14px', display:'flex', flexDirection:'column', gap:'12px' },
   msgRow: { display:'flex', gap:'8px', alignItems:'flex-start' },
   msgAv: { width:'30px', height:'30px', borderRadius:'50%', border:'1px solid rgba(255,255,255,.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', fontWeight:'700', flexShrink:0 },
