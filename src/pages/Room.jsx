@@ -3,6 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.jsx'
 import { triggerBotResponse, SEED_MESSAGES, BOTS } from '../lib/bots.js'
 
+const BOT_IDS = {
+  zara:   '00000000-0000-0000-0000-000000000001',
+  marcus: '00000000-0000-0000-0000-000000000002',
+  jay:    '00000000-0000-0000-0000-000000000003',
+  amira:  '00000000-0000-0000-0000-000000000004',
+  kezia:  '00000000-0000-0000-0000-000000000005',
+}
+
 export default function Room({ session }) {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -39,7 +47,7 @@ export default function Room({ session }) {
           return updated
         })
 
-        // Trigger bot response if message is from a real user
+        // Only trigger bot response for real users
         const botUsernames = Object.values(BOTS).map(b => b.username)
         const isBot = botUsernames.includes(prof?.username)
         if (!isBot && room) {
@@ -70,7 +78,6 @@ export default function Room({ session }) {
     if (data) {
       setMessages(data)
       messagesRef.current = data
-      // If no messages yet, seed the room
       if (data.length === 0) {
         setSeeded(false)
       } else {
@@ -88,7 +95,6 @@ export default function Room({ session }) {
     setProfile(data)
   }
 
-  // Seed room with bot conversations if empty
   useEffect(() => {
     if (room && !seeded && messages.length === 0) {
       seedRoom()
@@ -105,11 +111,9 @@ export default function Room({ session }) {
       const bot = BOTS[seed.bot]
       if (!bot) continue
 
-      // Get or create bot profile
-      const botUserId = await getOrCreateBot(bot)
+      const botUserId = getOrCreateBot(bot)
       if (!botUserId) continue
 
-      // Stagger the seed messages
       await new Promise(r => setTimeout(r, 800 * i))
 
       await supabase.from('messages').insert({
@@ -120,31 +124,8 @@ export default function Room({ session }) {
     }
   }
 
-  async function getOrCreateBot(bot) {
-    const { data: existing } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', bot.username)
-      .single()
-
-    if (existing) return existing.id
-
-    const botEmail = `${bot.username}@poppi-bot.internal`
-    const { data, error } = await supabase.auth.signUp({
-      email: botEmail,
-      password: 'poppi-b0t-' + bot.username + '-x9k2!',
-    })
-
-    if (data?.user) {
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        username: bot.username,
-        display_name: bot.display_name,
-        avatar_url: bot.avatar,
-      })
-      return data.user.id
-    }
-    return null
+  function getOrCreateBot(bot) {
+    return BOT_IDS[bot.username] || null
   }
 
   async function sendMessage(e) {
@@ -177,7 +158,6 @@ export default function Room({ session }) {
 
   return (
     <div style={s.wrap}>
-      {/* Header */}
       <div style={s.header}>
         <button style={s.back} onClick={() => navigate('/')}>←</button>
         <div style={{...s.roomAv, background: getAvatarColor(room.name)}}>
@@ -190,7 +170,6 @@ export default function Room({ session }) {
         <div style={s.livePill}>Live</div>
       </div>
 
-      {/* Messages */}
       <div style={s.msgs}>
         {messages.length === 0 && (
           <div style={s.empty}>Starting conversation...</div>
@@ -230,7 +209,6 @@ export default function Room({ session }) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
       <form style={s.inputWrap} onSubmit={sendMessage}>
         <input
           style={s.input}

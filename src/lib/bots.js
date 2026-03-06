@@ -1,6 +1,18 @@
 import { supabase } from './supabase.jsx'
 
 // ═══════════════════════════════════════
+// BOT IDS (pre-created in Supabase)
+// ═══════════════════════════════════════
+
+const BOT_IDS = {
+  zara:   '00000000-0000-0000-0000-000000000001',
+  marcus: '00000000-0000-0000-0000-000000000002',
+  jay:    '00000000-0000-0000-0000-000000000003',
+  amira:  '00000000-0000-0000-0000-000000000004',
+  kezia:  '00000000-0000-0000-0000-000000000005',
+}
+
+// ═══════════════════════════════════════
 // BOT PERSONALITIES
 // ═══════════════════════════════════════
 
@@ -130,46 +142,29 @@ export const ROOM_BOTS = {
 // ═══════════════════════════════════════
 
 async function callClaude(systemPrompt, messages) {
-  const response = await fetch('/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ systemPrompt, messages })
-  })
-  const data = await response.json()
-  return data.content?.[0]?.text || null
+  try {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ systemPrompt, messages })
+    })
+    if (!response.ok) {
+      console.error('Claude API error:', response.status)
+      return null
+    }
+    const data = await response.json()
+    return data.content?.[0]?.text || null
+  } catch (err) {
+    console.error('callClaude failed:', err)
+    return null
+  }
 }
 
 async function getBotUserId(bot) {
-  // Check if bot profile exists
-  const { data: existing } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('username', bot.username)
-    .single()
-
-  if (existing) return existing.id
-
-  // Create bot user in auth (use a fixed UUID based on bot name)
-  const botEmail = `${bot.username}@poppi-bot.internal`
-  const { data, error } = await supabase.auth.signUp({
-    email: botEmail,
-    password: 'poppi-bot-' + bot.username + '-x9k2',
-  })
-
-  if (data?.user) {
-    await supabase.from('profiles').upsert({
-      id: data.user.id,
-      username: bot.username,
-      display_name: bot.display_name,
-      avatar_url: bot.avatar,
-    })
-    return data.user.id
-  }
-  return null
+  return BOT_IDS[bot.username] || null
 }
 
 export async function triggerBotResponse(roomName, roomId, recentMessages, triggerMessage) {
-  // Get bots for this room
   const botKeys = ROOM_BOTS[roomName]
   if (!botKeys || botKeys.length === 0) return
 
@@ -180,31 +175,27 @@ export async function triggerBotResponse(roomName, roomId, recentMessages, trigg
   const botKey = botKeys[Math.floor(Math.random() * botKeys.length)]
   const bot = BOTS[botKey]
 
-  // Build conversation context for the bot
+  // Build conversation context
   const conversationHistory = recentMessages.slice(-10).map(m => ({
     role: 'user',
     content: `${m.profiles?.display_name || m.profiles?.username || 'Someone'}: ${m.content}`
   }))
 
-  // Add the trigger message
   conversationHistory.push({
     role: 'user',
     content: `${triggerMessage.profiles?.display_name || 'Someone'}: ${triggerMessage.content}\n\nRespond naturally as ${bot.name} in this conversation. Keep it short and real.`
   })
 
-  // Add a delay so it doesn't feel instant (2-6 seconds)
+  // Random delay 2-6 seconds so it feels human
   const delay = 2000 + Math.random() * 4000
   await new Promise(resolve => setTimeout(resolve, delay))
 
-  // Get Claude response
   const text = await callClaude(bot.system, conversationHistory)
   if (!text) return
 
-  // Get or create bot user ID
   const botUserId = await getBotUserId(bot)
   if (!botUserId) return
 
-  // Post the message
   await supabase.from('messages').insert({
     room_id: roomId,
     user_id: botUserId,
@@ -213,7 +204,7 @@ export async function triggerBotResponse(roomName, roomId, recentMessages, trigg
 }
 
 // ═══════════════════════════════════════
-// SEED CONVERSATIONS (initial messages)
+// SEED CONVERSATIONS
 // ═══════════════════════════════════════
 
 export const SEED_MESSAGES = {
