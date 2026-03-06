@@ -69,6 +69,15 @@ export default function Home({ session }) {
     setLoading(false)
   }
 
+  async function deleteRoom(e, room) {
+    e.stopPropagation()
+    if (!confirm(`Delete "${room.name}"? This cannot be undone.`)) return
+    await supabase.from('messages').delete().eq('room_id', room.id)
+    await supabase.from('room_members').delete().eq('room_id', room.id)
+    await supabase.from('rooms').delete().eq('id', room.id)
+    fetchRooms()
+  }
+
   async function joinRoom(room) {
     await supabase.from('room_members').upsert({
       room_id: room.id,
@@ -150,11 +159,14 @@ export default function Home({ session }) {
             {publicRooms.map(room => {
               const preview = roomPreviews[room.id]
               return (
-                <div key={room.id} style={s.card} onClick={() => joinRoom(room)}>
-                  <div style={{...s.cardAv, background: getAvatarColor(room.name)}}>
+                <div key={room.id} style={s.card}>
+                  <div
+                    style={{...s.cardAv, background: getAvatarColor(room.name)}}
+                    onClick={() => joinRoom(room)}
+                  >
                     {room.name.charAt(0).toUpperCase()}
                   </div>
-                  <div style={s.cardInfo}>
+                  <div style={s.cardInfo} onClick={() => joinRoom(room)}>
                     <div style={s.cardNameRow}>
                       <div style={s.cardName}>{room.name}</div>
                       <div style={s.liveDot} />
@@ -171,7 +183,9 @@ export default function Home({ session }) {
                       <div style={s.cardMeta}>Be the first to say something</div>
                     )}
                   </div>
-                  <div style={s.cardArr}>›</div>
+                  {room.owner_id === session.user.id && (
+                    <button style={s.deleteBtn} onClick={e => deleteRoom(e, room)}>✕</button>
+                  )}
                 </div>
               )
             })}
@@ -184,11 +198,14 @@ export default function Home({ session }) {
             {privateRooms.map(room => {
               const preview = roomPreviews[room.id]
               return (
-                <div key={room.id} style={{...s.card, borderColor:'rgba(255,255,255,.05)'}} onClick={() => joinRoom(room)}>
-                  <div style={{...s.cardAv, background:'#1a1a1a', border:'1px solid rgba(255,255,255,.1)'}}>
+                <div key={room.id} style={{...s.card, borderColor:'rgba(255,255,255,.05)'}}>
+                  <div
+                    style={{...s.cardAv, background:'#1a1a1a', border:'1px solid rgba(255,255,255,.1)'}}
+                    onClick={() => joinRoom(room)}
+                  >
                     🔒
                   </div>
-                  <div style={s.cardInfo}>
+                  <div style={s.cardInfo} onClick={() => joinRoom(room)}>
                     <div style={s.cardName}>{room.name}</div>
                     {preview ? (
                       <div style={s.cardPreview}>
@@ -199,7 +216,9 @@ export default function Home({ session }) {
                       <div style={s.cardMeta}>Private · invite only</div>
                     )}
                   </div>
-                  <div style={s.cardArr}>›</div>
+                  {room.owner_id === session.user.id && (
+                    <button style={s.deleteBtn} onClick={e => deleteRoom(e, room)}>✕</button>
+                  )}
                 </div>
               )
             })}
@@ -236,9 +255,9 @@ const s = {
   list: { padding:'16px' },
   sectionLabel: { fontSize:'10px', letterSpacing:'.1em', color:'rgba(255,255,255,.28)', marginBottom:'10px', fontFamily:'monospace' },
   empty: { textAlign:'center', padding:'60px 20px', color:'#fff' },
-  card: { display:'flex', alignItems:'flex-start', gap:'12px', padding:'14px', background:'#0a0a0a', border:'1px solid rgba(255,255,255,.08)', borderRadius:'16px', marginBottom:'10px', cursor:'pointer' },
-  cardAv: { width:'46px', height:'46px', borderRadius:'13px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'20px', fontWeight:'800', flexShrink:0, color:'rgba(255,255,255,.9)' },
-  cardInfo: { flex:1, minWidth:0 },
+  card: { display:'flex', alignItems:'flex-start', gap:'12px', padding:'14px', background:'#0a0a0a', border:'1px solid rgba(255,255,255,.08)', borderRadius:'16px', marginBottom:'10px' },
+  cardAv: { width:'46px', height:'46px', borderRadius:'13px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'20px', fontWeight:'800', flexShrink:0, color:'rgba(255,255,255,.9)', cursor:'pointer' },
+  cardInfo: { flex:1, minWidth:0, cursor:'pointer' },
   cardNameRow: { display:'flex', alignItems:'center', gap:'8px', marginBottom:'3px' },
   cardName: { fontSize:'15px', fontWeight:'700' },
   liveDot: { width:'7px', height:'7px', borderRadius:'50%', background:'#e8547a', boxShadow:'0 0 6px #e8547a', flexShrink:0 },
@@ -248,4 +267,5 @@ const s = {
   previewText: { color:'rgba(255,255,255,.45)' },
   cardMeta: { fontSize:'12px', color:'rgba(255,255,255,.3)' },
   cardArr: { color:'rgba(255,255,255,.2)', fontSize:'20px', paddingTop:'2px' },
+  deleteBtn: { background:'rgba(255,255,255,.05)', border:'1px solid rgba(255,255,255,.08)', color:'rgba(255,255,255,.3)', width:'28px', height:'28px', borderRadius:'8px', cursor:'pointer', fontSize:'11px', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontFamily:'inherit' },
 }
