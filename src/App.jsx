@@ -5,6 +5,9 @@ import Auth from './pages/Auth'
 import Home from './pages/Home'
 import Room from './pages/Room'
 import Profile from './pages/Profile'
+import UserProfile from './pages/UserProfile'
+import Messages from './pages/Messages'
+import DMChat from './pages/DMChat'
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -40,10 +43,13 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/auth" element={!session ? <Auth /> : <Navigate to="/" />} />
-      <Route path="/" element={session ? <Home session={session} /> : <Navigate to="/auth" />} />
-      <Route path="/room/:id" element={session ? <Room session={session} /> : <Navigate to="/auth" />} />
-      <Route path="/profile" element={session ? <Profile session={session} /> : <Navigate to="/auth" />} />
+      <Route path="/auth"             element={!session ? <Auth /> : <Navigate to="/" />} />
+      <Route path="/"                 element={session ? <Home session={session} /> : <Navigate to="/auth" />} />
+      <Route path="/room/:id"         element={session ? <Room session={session} /> : <Navigate to="/auth" />} />
+      <Route path="/profile"          element={session ? <Profile session={session} /> : <Navigate to="/auth" />} />
+      <Route path="/user/:userId"     element={session ? <UserProfile session={session} /> : <Navigate to="/auth" />} />
+      <Route path="/messages"         element={session ? <Messages session={session} /> : <Navigate to="/auth" />} />
+      <Route path="/messages/:convId" element={session ? <DMChat session={session} /> : <Navigate to="/auth" />} />
     </Routes>
   )
 }

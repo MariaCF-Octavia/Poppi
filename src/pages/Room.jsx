@@ -325,7 +325,10 @@ export default function Room({ session }) {
 
               <div style={{maxWidth:'76%',display:'flex',flexDirection:'column',gap:'3px',alignItems: isOwn ? 'flex-end' : 'flex-start'}}>
                 <div style={{...s.msgMeta, flexDirection: isOwn ? 'row-reverse' : 'row'}}>
-                  <span style={s.msgName}>{isOwn ? 'You' : name}</span>
+                  <span
+                    style={{ ...s.msgName, cursor: isOwn ? 'default' : 'pointer' }}
+                    onClick={() => !isOwn && group.user_id && navigate(`/user/${group.user_id}`)}
+                  >{isOwn ? 'You' : name}</span>
                   <span style={s.msgTime}>{timeAgo(group.msgs[0].created_at)}</span>
                 </div>
 
