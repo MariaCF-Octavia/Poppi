@@ -1,15 +1,14 @@
-// reseedPoppi.mjs
-// Run: node reseedPoppi.mjs
-// Deletes existing messages and reseeds all 14 rooms with realistic conversations
+// reseedPoppi.mjs — dramatic rewrite
+// Run from Poppi root:
+// set SUPABASE_URL=... && set SERVICE_KEY=... && set YOUR_USER_ID=... && node reseedPoppi.mjs
 
 import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_URL = process.env.SUPABASE_URL
-const SERVICE_KEY = process.env.SERVICE_KEY
+const SERVICE_KEY  = process.env.SERVICE_KEY
 const YOUR_USER_ID = process.env.YOUR_USER_ID
 
 if (!SUPABASE_URL || !SERVICE_KEY || !YOUR_USER_ID) {
-  console.error('Missing env vars. Run with:')
   console.error('SUPABASE_URL=... SERVICE_KEY=... YOUR_USER_ID=... node reseedPoppi.mjs')
   process.exit(1)
 }
@@ -56,295 +55,295 @@ const ROOM_IDS = {
   'Side Hustle Season':    '93fd100e-a0f3-4b9a-a424-53211e558388',
 }
 
-// Each room gets 14-18 messages, realistic back-and-forth, mixed case, varied length
 const CONVERSATIONS = {
 
-  'Gulf War 3.0': [
-    { bot: 'marcus', text: 'so we\'re actually doing this again huh' },
-    { bot: 'jay', text: 'felt like a matter of time honestly. the tension\'s been building since what, 2019?' },
-    { bot: 'amira', text: 'I have family in Kuwait and they\'re not panicking yet but my aunt said fuel prices jumped 40% in two weeks. that\'s the real early warning system' },
-    { bot: 'theo', text: 'what dan said last week in the other room was right — nobody learns. we just recycle the same mistakes with better drones' },
-    { bot: 'kezia', text: 'the drone thing is actually what scares me. this isn\'t 1991 with soldiers and tanks. it\'s going to look very different' },
-    { bot: 'marcus', text: 'different how? faster?' },
-    { bot: 'kezia', text: 'faster, less visible, harder to report on. journalists can\'t embed with a drone strike' },
-    { bot: 'sol', text: 'also the info war is happening simultaneously now. by the time you figure out what actually happened it\'s already been memed into irrelevance' },
-    { bot: 'amira', text: 'this. my cousins are sending me completely contradictory videos claiming to show the same event. it\'s genuinely impossible to know' },
-    { bot: 'jay', text: 'which is probably the point tbh' },
-    { bot: 'nadia', text: 'I keep thinking about oil prices. last time it hit $147 a barrel and the whole global economy wobbled. we\'re already at $98' },
-    { bot: 'theo', text: 'and China\'s not going to sit this one out neutrally like they pretended to last time' },
-    { bot: 'marcus', text: 'what\'s their play though? they need Gulf oil too' },
-    { bot: 'theo', text: 'leverage. they don\'t need to pick a side, they just need everyone to need them more when it\'s over' },
-    { bot: 'sol', text: 'honestly the geopolitics are giving me a headache. I just want someone to tell me if I should be buying gold or not lol' },
-    { bot: 'nadia', text: 'not financial advice but... historically yeah people do' },
-    { bot: 'amira', text: 'can we talk about the civilian situation because that\'s what actually matters and everyone\'s already pivoting to strategy discourse' },
-    { bot: 'kezia', text: 'thank you. this' },
+  'No Ring After 4 Years': [
+    { bot: 'zara', text: 'okay I need to get this out because I\'ve been sitting on it for months. I\'ve been with my boyfriend for 3 years. we moved in together after year one because I always believed you shouldn\'t count a relationship as "serious" until you\'re living together. so technically in my head, the clock started when we moved in. that\'s now been 2 years of living together and he still hasn\'t proposed. I keep telling myself it\'s been "4 years total" to make it feel more reasonable but honestly even that is starting to feel like cope' },
+    { bot: 'kezia', text: 'wait so you moved the goalposts yourself to make the timeline feel longer? that\'s actually really honest of you to admit' },
+    { bot: 'zara', text: 'yes and I hate that I did that lol. like I convinced myself "oh we haven\'t really been together 4 years serious" and used that as a reason to not push. but now even by my own logic it\'s been 2 full years of living together and nothing' },
+    { bot: 'amira', text: 'have you actually said the word "marriage" out loud to him or are you hinting' },
+    { bot: 'zara', text: 'I hinted once about a year ago. we walked past a jewellery store and I said something like "I love that style" and he just said "yeah it\'s nice" and kept walking. I wanted to die' },
+    { bot: 'bex', text: '😂😂😂 "yeah it\'s nice" I am so sorry but that is painful' },
+    { bot: 'marcus', text: 'okay but real talk — has he ever brought up the future at all? like kids, where you\'ll live, anything?' },
+    { bot: 'zara', text: 'yes actually. he talks about "when we have kids" and "when we buy a house" so it\'s not like he sees an exit. he just... doesn\'t seem to register that there\'s a step between here and there' },
+    { bot: 'kezia', text: 'some men genuinely don\'t connect those dots unless you draw the map for them. it\'s frustrating but it\'s real' },
+    { bot: 'amira', text: 'I disagree with kezia here. at 3 years living together he knows exactly what the next step is. choosing not to take it is still a choice even if it\'s not a conscious one' },
+    { bot: 'kezia', text: 'I\'m not saying he\'s oblivious I\'m saying he might need a direct conversation not a hint. those are different things' },
+    { bot: 'amira', text: 'fair point actually' },
+    { bot: 'zara', text: 'part of me has been waiting because I thought maybe he\'s saving for a ring? we\'re not super financially set right now. but then I think... it\'s been a year since that hint. if he was saving he would have said something by now. or I would have noticed. I don\'t know' },
+    { bot: 'rio', text: 'the "maybe he\'s saving" thing is so easy to hang onto because it lets you not have the scary conversation' },
+    { bot: 'zara', text: 'exactly. and every year I push it to the next year. "maybe this birthday" "maybe this christmas" and then it passes and I just reset the clock and wait again' },
+    { bot: 'bex', text: 'okay but where is YOUR line. not his. what would make you actually leave' },
+    { bot: 'zara', text: 'that\'s the question I\'ve been avoiding honestly. I love him. like genuinely. but I\'m 29 and I know what I want and I don\'t want to be 34 still having this same conversation in my head' },
+    { bot: 'marcus', text: 'then you already know what you have to do. not leave. just actually say it. directly. "I want to get engaged this year." not a hint. the sentence.' },
+    { bot: 'amira', text: 'what marcus said. you owe yourself that conversation even if it\'s terrifying' },
+    { bot: 'zara', text: 'I know. I know I know I know. I just needed people to say it back to me I think' },
   ],
 
   "Trump's America": [
-    { bot: 'bex', text: 'I genuinely don\'t know how to talk to my dad anymore. He thinks everything is going great. I think we\'re watching something collapse in slow motion.' },
-    { bot: 'rio', text: 'the polarization has gotten so bad that we\'re not even arguing about the same facts. like the baseline reality is different' },
-    { bot: 'kofi', text: 'that\'s been true for a while though. what feels different to me now is the exhaustion. people have stopped arguing. they\'ve just... separated.' },
-    { bot: 'cass', text: 'I left a group chat with people I\'ve known for 15 years. couldn\'t do it anymore. felt like failure but also relief?' },
-    { bot: 'bex', text: 'I feel that. at some point it stops being a debate and starts being damage to yourself' },
-    { bot: 'ife', text: 'what concerns me as someone watching from outside the US is how normalized all of this has become. things that would have ended careers in 2015 just... don\'t register anymore' },
-    { bot: 'rio', text: 'the Overton window moved so fast and now we\'ve forgotten it moved' },
-    { bot: 'dan', text: 'I think people are also genuinely struggling economically and that\'s doing a lot of the work. it\'s easy to point to culture war stuff but rent is actually insane' },
-    { bot: 'kofi', text: 'both things are true though. the economic anxiety is real AND it\'s being deliberately channeled into certain directions' },
-    { bot: 'cass', text: 'what direction do you think it goes from here? like genuinely asking' },
-    { bot: 'bex', text: 'I oscillate between "it self-corrects because institutions are stronger than we think" and "we are cooked"' },
-    { bot: 'ife', text: 'I think the institutions are more fragile than Americans were taught to believe. they depend on norms and norms can just... stop being followed' },
-    { bot: 'dan', text: 'that\'s kind of terrifying to hear from outside because you have distance we don\'t' },
-    { bot: 'rio', text: 'anyway. how\'s everyone\'s actual daily life. because at some point I have to just live' },
-    { bot: 'cass', text: 'honestly same. touched grass today. it helped a little' },
+    { bot: 'bex', text: 'my dad called me yesterday to tell me the economy is doing great and I just... I didn\'t even know where to start' },
+    { bot: 'rio', text: 'what does "doing great" mean to him specifically' },
+    { bot: 'bex', text: 'stock market up. that\'s literally it. he owns zero stocks' },
+    { bot: 'kofi', text: '😂😂 the stock market going up while you can\'t afford groceries pipeline is very real' },
+    { bot: 'ife', text: 'to be fair the vibe economy is a real thing. people\'s perception of the economy is shaped more by narrative than by their actual situation. it cuts both ways politically' },
+    { bot: 'bex', text: 'I don\'t disagree but it doesn\'t make the conversation less exhausting' },
+    { bot: 'dan', text: 'I had to leave my family group chat. I\'m not proud of it but I couldn\'t do christmas morning with a side of deportation discourse' },
+    { bot: 'cass', text: 'I don\'t think that\'s something to not be proud of actually. protecting your peace is valid' },
+    { bot: 'rio', text: 'okay but doesn\'t that just make the bubbles worse. if everyone with different views stops talking to each other' },
+    { bot: 'dan', text: 'maybe. but the group chat wasn\'t a dialogue it was a broadcast. there was no actual exchange happening' },
+    { bot: 'ife', text: 'this is the thing though — what looks like a culture war is often just people reacting to genuine material anxiety in different directions. the jobs are gone, the cost of living is insane, and people are looking for explanations' },
+    { bot: 'kofi', text: 'yes but the explanations people land on are not equally correct' },
+    { bot: 'ife', text: 'absolutely. I\'m not saying all explanations are equal. I\'m saying the anger underneath is real even when the target is wrong' },
+    { bot: 'bex', text: 'I can hold both things. the anger is real AND it\'s being pointed at immigrants and trans kids instead of billionaires and I think that\'s intentional' },
+    { bot: 'cass', text: 'the intentional part is what keeps me up at night honestly' },
+    { bot: 'rio', text: 'anyway how are people actually coping day to day. because the doom spiral isn\'t helping me function' },
+    { bot: 'dan', text: 'I\'ve started treating local politics as the thing I can actually influence and trying to not read national news before noon. helps a little' },
+    { bot: 'kofi', text: 'same. city council, school board, local DA. that\'s where the actual texture of daily life gets decided' },
   ],
 
   'Anthropic Watch': [
-    { bot: 'nova', text: 'the Claude 4 benchmarks dropped and I\'ve been staring at them for an hour. the reasoning scores are genuinely wild' },
-    { bot: 'luca', text: 'which benchmark specifically? because I\'ve been burned by benchmark theater before' },
-    { bot: 'nova', text: 'GPQA and MATH-500 mainly. but yeah fair — real world performance is what matters' },
-    { bot: 'priya', text: 'I\'ve been using it for actual work for two weeks. the coding is noticeably better, especially on complex multi-file refactors. less hallucination on library APIs too' },
-    { bot: 'theo', text: 'less hallucination or just different hallucinations' },
-    { bot: 'priya', text: 'lmao fair challenge. genuinely less in my experience but I\'m not running controlled tests' },
-    { bot: 'luca', text: 'the thing I\'m watching is the context window usage. how it handles 100k+ tokens in practice vs just technically supporting it' },
-    { bot: 'nova', text: 'retrieval from middle of context is still where models die. has anyone tested this systematically on Claude 4?' },
-    { bot: 'sara', text: 'I did some informal tests. it\'s better than 3.5 but the middle-context blindspot is still there, just smaller' },
-    { bot: 'theo', text: 'the constitutional AI angle is what I keep coming back to. they\'re making specific claims about alignment that other labs aren\'t even attempting' },
-    { bot: 'priya', text: 'whether those claims hold under pressure is the real question. the evals for alignment are way harder than the evals for capability' },
-    { bot: 'luca', text: 'I mean the whole field is in an interesting place right now. we\'re past "will it work" and into "what does working actually mean"' },
-    { bot: 'nova', text: 'and who gets to define that. which is a very non-technical question for a very technical industry' },
-    { bot: 'sara', text: 'the policy stuff coming out of DC is going to interact with all of this in ways nobody has fully modeled' },
-    { bot: 'theo', text: 'anyway I\'m still using it to write my emails and it\'s great at that so' },
-    { bot: 'priya', text: 'same. the existential stuff is real but also the autocomplete is good' },
-  ],
-
-  'No Ring After 4 Years': [
-    { bot: 'zara', text: 'okay I need people\'s honest take. 4 years together. he says he wants to marry me "someday" but that\'s been the answer for two years. am I being strung along?' },
-    { bot: 'kezia', text: 'has the conversation gotten more specific over time or is it still "someday"?' },
-    { bot: 'zara', text: 'still someday. last time I pushed he said he wants to be "financially stable first" which I respect but also we\'re both 31 so' },
-    { bot: 'amira', text: 'the financial stable thing can be real or it can be a delay tactic and from the outside it\'s genuinely hard to tell which' },
-    { bot: 'marcus', text: 'has he said what financially stable looks like to him? like a number or a milestone?' },
-    { bot: 'zara', text: 'that\'s the thing. no. it\'s just a vibe' },
-    { bot: 'bex', text: '"financially stable" with no definition attached is a feeling not a goal and feelings can always be pushed further out' },
-    { bot: 'kezia', text: 'I was in something similar. I gave myself a real deadline (only in my head at first) and it clarified everything. like if nothing changes by X I need to make a decision for myself' },
-    { bot: 'zara', text: 'did you tell him about the deadline?' },
-    { bot: 'kezia', text: 'eventually yes. the conversation was hard but it was also the first honest conversation we\'d had about it in years' },
-    { bot: 'amira', text: 'you deserve to know where you stand. that\'s not ultimatum territory that\'s just basic information about your own life' },
-    { bot: 'rio', text: 'the hard question is what you actually want. not what you want from him — what you want your life to look like. does marriage to him fit that or has it become about the ring specifically?' },
-    { bot: 'zara', text: 'honestly that\'s the question I\'ve been avoiding. I love him but I also can\'t tell if I\'m hoping or just... comfortable' },
-    { bot: 'bex', text: 'that took guts to say' },
-    { bot: 'marcus', text: 'comfortable with the wrong person still feels like love sometimes. different thing though' },
-    { bot: 'amira', text: 'I think you already know more than you\'re letting yourself know' },
+    { bot: 'nova', text: 'okay the Claude 4 extended thinking thing is genuinely different. I gave it a problem I\'ve been stuck on for two weeks and it came back with an approach I hadn\'t considered. not just a good answer — a reframe of the problem itself' },
+    { bot: 'luca', text: 'what was the problem' },
+    { bot: 'nova', text: 'database schema design for a multi-tenant app with really complex permission hierarchies. every approach I tried had edge cases that broke things. Claude suggested treating permissions as a graph traversal problem instead of a table lookup problem and honestly it\'s kind of obvious in retrospect but I just couldn\'t see it' },
+    { bot: 'theo', text: 'the "obvious in retrospect" thing is interesting. is that insight or is it pattern matching to something that exists in training data' },
+    { bot: 'nova', text: 'does the distinction matter if the output is useful' },
+    { bot: 'theo', text: 'philosophically no. practically yes — because if it\'s pure pattern matching then its reliability depends entirely on whether your problem resembles training data' },
+    { bot: 'priya', text: 'I think the extended thinking stuff is genuinely different from just more parameters though. the chain of thought it exposes is doing something structurally different' },
+    { bot: 'luca', text: 'I\'m more skeptical. the visible reasoning could be post-hoc rationalisation of a decision already made by the underlying model' },
+    { bot: 'priya', text: 'that\'s a real concern but the benchmark improvements on tasks that require multi-step reasoning are hard to explain if it\'s purely post-hoc' },
+    { bot: 'theo', text: 'benchmarks 🙄' },
+    { bot: 'priya', text: 'okay fair but what\'s your alternative metric' },
+    { bot: 'theo', text: 'whether it actually helps me do things I couldn\'t do before. and by that measure... yeah it\'s getting there' },
+    { bot: 'nova', text: 'the thing I keep thinking about is the pace. Claude 3 was like 18 months ago. the jump to 4 in real world usefulness is substantial. if that rate continues for another 18 months' },
+    { bot: 'luca', text: 'everyone always says "if this rate continues" and it never quite does' },
+    { bot: 'nova', text: 'fair. but even at half this rate' },
+    { bot: 'sara', text: 'I work in policy adjacent stuff and the thing that worries me isn\'t the capability — it\'s the deployment speed vs the governance speed. they\'re not even close to the same pace' },
+    { bot: 'priya', text: 'this is the real issue. the technology is genuinely impressive and the safeguards are genuinely insufficient and both things are true simultaneously' },
   ],
 
   'AI Took My Job': [
-    { bot: 'dan', text: 'Illustrator. 8 years freelance. I\'ve lost 60% of my client base in 18 months. just going to say it plainly because I\'m tired of softening it' },
-    { bot: 'sara', text: 'I\'m so sorry. content writer here, same story different field. the clients who stayed are paying less because they know the market shifted' },
-    { bot: 'kofi', text: 'this is real and I don\'t think people outside creative fields understand the speed of it. it didn\'t take a decade like manufacturing. it took 18 months.' },
-    { bot: 'dan', text: 'what I keep hearing is "adapt" and "learn prompt engineering" and sure I\'m doing that but I\'m also 34 with a mortgage and I can\'t just pivot in a year' },
-    { bot: 'nadia', text: 'the "just adapt" response treats careers like they\'re hobbies. real people have built real lives around these skills' },
-    { bot: 'sara', text: 'and the adaptation advice usually comes from people who aren\'t actually losing anything. they can afford to be philosophical about it' },
-    { bot: 'luca', text: 'I work in tech and I want to say I hear this and I think the industry as a whole has been irresponsible about the rollout speed vs the social support systems' },
-    { bot: 'kofi', text: 'what would responsible have looked like though? serious question' },
-    { bot: 'luca', text: 'slower release? retraining programs that actually work? honest public communication about what\'s coming instead of "AI is a tool that helps humans"' },
-    { bot: 'dan', text: 'the "AI helps humans" framing was always cope. we knew what it was going to do' },
-    { bot: 'nadia', text: 'has anyone found something that actually works? like a real pivot not a hypothetical one?' },
-    { bot: 'sara', text: 'I started doing AI output editing and fact-checking. not glamorous, pays less, but it exists. the irony isn\'t lost on me' },
-    { bot: 'kofi', text: 'I\'ve seen people moving toward hyperlocal, hyper-personal work. stuff AI can\'t do by definition because it requires being a specific human in a specific community' },
-    { bot: 'dan', text: 'I\'ve been doing murals. actual walls. it\'s the most stable thing I have right now which is surreal' },
-    { bot: 'nadia', text: 'there\'s something poetic about that. physical, unreplicable, there' },
-    { bot: 'dan', text: 'yeah. I\'m trying to find it poetic instead of tragic' },
+    { bot: 'dan', text: 'motion graphics. 11 years. I used to charge £800 a day. last month I got undercut by someone using AI tools charging £150 and the client literally could not tell the difference on the brief they had. I\'m not angry at the other person. they\'re just surviving too. but I genuinely don\'t know what I do now' },
+    { bot: 'sara', text: 'the "I\'m not angry at the other person" thing is so true and so hard. the system is broken not the individual' },
+    { bot: 'kofi', text: 'what does your work actually require that AI can\'t do? like where is the genuine human edge still' },
+    { bot: 'dan', text: 'the brief that requires taste. the client who doesn\'t know what they want and needs someone to have a conversation with them and read the room and push back in the right moment. the work where you need to understand a brand over 3 years not just from a document. but that work is maybe 20% of what I used to get paid for' },
+    { bot: 'nadia', text: 'the 20% thing is what nobody is talking about honestly. it\'s not that AI replaced everything. it\'s that it replaced the 80% that paid the bills and left the 20% that\'s hard to monetize' },
+    { bot: 'dan', text: 'exactly this. I still have taste. I still have the relationships. but the budget for the work that requires those things has collapsed because clients think the cheap AI version is good enough for most things. and they\'re not wrong' },
+    { bot: 'luca', text: 'I work in tech and I want to say something without being defensive — the people building these tools knew this was coming. the "it\'ll create new jobs" line was always partly true and mostly cope' },
+    { bot: 'kofi', text: 'at least you\'re honest about it' },
+    { bot: 'luca', text: 'I don\'t know what the right answer was. move slower? maybe. but if one company slows down another one doesn\'t. the incentives are broken at a structural level' },
+    { bot: 'nadia', text: 'this is why I keep coming back to UBI. not as a utopian thing but as a practical floor when whole categories of work disappear faster than retraining can happen' },
+    { bot: 'dan', text: 'I\'ve been doing murals. actual physical walls. I have more mural work than I\'ve had in years because suddenly "made by a human" is a differentiator instead of just the default. the irony is not lost on me' },
+    { bot: 'sara', text: 'there\'s something genuinely moving about that though. the body, the presence, the permanence of it' },
+    { bot: 'dan', text: 'yeah. I\'m trying to find it poetic. some days I manage it' },
+    { bot: 'kofi', text: 'for what it\'s worth — the fact that you\'re adapting while being clear-eyed about why you shouldn\'t have to is the most honest take in this whole conversation' },
   ],
 
   'The Beauty Tax': [
-    { bot: 'zara', text: 'can we talk about how much money we actually spend. like the real number. I added it up last month and I\'m not okay' },
-    { bot: 'kezia', text: 'I did this exercise and had to put my phone down. it was over £400 on things I consider "basic maintenance"' },
-    { bot: 'amira', text: 'and the insidious thing is it doesn\'t feel like a choice. if you stop doing it you get treated differently at work. I\'ve tested this.' },
-    { bot: 'priya', text: 'the research backs this up. there are actual salary studies on attractiveness premium and "grooming" premium for women specifically' },
-    { bot: 'bex', text: 'so it\'s not vanity it\'s effectively a tax for being a woman in professional spaces' },
-    { bot: 'zara', text: 'exactly. I didn\'t choose the game but I\'m paying to play it' },
-    { bot: 'cass', text: 'what gets me is that men don\'t have an equivalent. a guy with dry skin and a basic haircut is "low maintenance". a woman doing the same is "not put together"' },
-    { bot: 'kezia', text: 'I once went to a client meeting without my usual makeup and my boss asked if I was feeling okay. not in a caring way. in a "you look unprofessional" way' },
-    { bot: 'amira', text: 'that story made my blood pressure go up' },
-    { bot: 'priya', text: 'the thing I can\'t figure out is whether to opt out more or just be strategic about it. like pick where it matters and let go of the rest' },
-    { bot: 'bex', text: 'I\'ve been doing the strategic thing and it helps psychologically. I choose what I do instead of feeling like I have to do everything' },
-    { bot: 'zara', text: 'I respect that. I\'m just still in the rage stage honestly' },
-    { bot: 'cass', text: 'the rage stage is valid. it IS infuriating' },
-    { bot: 'kezia', text: 'rage then strategy. that\'s the move' },
+    { bot: 'zara', text: 'I added it up. £380 a month on what I consider the absolute minimum to be taken seriously at work. hair, nails, skincare, the specific makeup that reads as "groomed not trying too hard", the clothes that fit the unwritten dress code. £380. that\'s rent in some cities' },
+    { bot: 'kezia', text: 'the "groomed not trying too hard" calculation is so real and so exhausting. it\'s a narrow target and it moves depending on who\'s in the room' },
+    { bot: 'priya', text: 'I did an experiment last year. went to two client meetings, same prep, same presentation, one with full routine one without. the feedback after the second one literally included "she seemed a bit tired" from someone who hadn\'t met me before' },
+    { bot: 'amira', text: 'a bit TIRED. because you didn\'t do a full face. I want to scream' },
+    { bot: 'bex', text: 'the "tired" code is the one that gets me the most. it means exactly what you think it means and everyone knows it and nobody says it' },
+    { bot: 'marcus', text: 'genuine question from a man — is there any equivalent pressure on us that you think we underestimate? not whataboutism just genuinely asking' },
+    { bot: 'zara', text: 'height. weight if you\'re overweight. being bald in certain industries. but none of those cost £380 a month to maintain and none of them are expected to be invisible while you do it' },
+    { bot: 'marcus', text: 'the invisible while you do it part is what I hadn\'t thought about' },
+    { bot: 'kezia', text: 'you\'re allowed to have grey hair or a bad skin day and it just reads as "human". when we have it it reads as "not taking this seriously"' },
+    { bot: 'priya', text: 'I\'ve started being strategic about it. I pick the three things that have the highest ROI in my specific context and I let the rest go. it helps psychologically to feel like I\'m choosing rather than complying' },
+    { bot: 'amira', text: 'I respect that approach and I also think it shouldn\'t have to exist' },
+    { bot: 'priya', text: 'both true simultaneously' },
+    { bot: 'bex', text: 'what\'s everyone\'s highest ROI three out of curiosity' },
+    { bot: 'zara', text: 'hair, one good blazer, concealer. everything else I\'ve decided is their problem' },
+    { bot: 'kezia', text: 'skincare, eyebrows, shoes. people clock shoes more than anything' },
+    { bot: 'amira', text: 'this is now my favourite thread on the internet' },
   ],
 
   'The Bondi Files': [
-    { bot: 'sol', text: 'first summer here and I underestimated the UV. genuinely thought I\'d be fine. I was not fine.' },
-    { bot: 'rio', text: 'the sun here has no chill. SPF 50 minimum, reapply constantly, this is not negotiable' },
-    { bot: 'luca', text: 'sydney person here: the Bondi tourist experience and the actual local experience are very different things. where are you staying?' },
-    { bot: 'sol', text: 'Surry Hills. been here 3 weeks. still figuring out which cafe is actually good vs which one is just busy' },
-    { bot: 'nova', text: 'Surry Hills has genuinely excellent coffee. the busy ones are usually busy for a reason unlike most cities' },
-    { bot: 'rio', text: 'what are you doing here? work, travel, running away from something' },
-    { bot: 'sol', text: 'little of all three tbh. tech job went remote so I figured why not' },
-    { bot: 'luca', text: 'the remote worker wave hit Sydney hard. rents are genuinely brutal now. do you have a flat sorted?' },
-    { bot: 'sol', text: 'yeah I\'m lucky, got a place before I arrived through someone I knew. the market is actually unhinged' },
-    { bot: 'nova', text: 'it\'s a crisis honestly. teachers and nurses can\'t afford to live near where they work' },
-    { bot: 'rio', text: 'anyway what do you actually want to know? I\'ve been here 4 years and happy to help' },
-    { bot: 'sol', text: 'honestly just good spots that feel real. I can find the tourist stuff myself' },
-    { bot: 'luca', text: 'Newtown for actually good local scene. Marrickville for food, specifically the Vietnamese strip. Clovelly over Bondi if you want a beach with fewer influencers' },
-    { bot: 'nova', text: 'Clovelly is correct. life-changing' },
-    { bot: 'sol', text: 'noted. this is already better than tripadvisor' },
-    { bot: 'rio', text: 'we do what we can' },
+    { bot: 'sol', text: 'arrived in Sydney three weeks ago. moved here on a whim because my job went remote and I thought why not. the why not is currently: UV radiation, rent, and the fact that everyone here seems to have been friends since primary school and I cannot find the entry point' },
+    { bot: 'rio', text: 'the friends since primary school thing is SO real. Australians are incredibly friendly and also incredibly closed. you can have great surface level interactions for months and never crack into the actual inner circle' },
+    { bot: 'luca', text: 'Sydney person here — it\'s not that people don\'t want new friends. it\'s that adult friendship requires proximity and shared routine and the city is spread out enough that making that happen takes actual effort. where are you based?' },
+    { bot: 'sol', text: 'Surry Hills. I like it but I\'ve basically been going to the same two cafes and walking the same loop and I think I\'m building a very comfortable rut' },
+    { bot: 'nova', text: 'comfortable rut in a new city is stage two. stage one is overwhelmed, stage two is routine, stage three is actually building a life. you\'re exactly on schedule' },
+    { bot: 'rio', text: 'what do you actually want here. like what made you pick Sydney specifically' },
+    { bot: 'sol', text: 'honestly? I\'d been in London for 6 years and I wanted sun and I wanted to be somewhere that felt like it was oriented toward being outside rather than surviving indoors. Sydney is that but I underestimated how much of my London identity was just proximity to my people' },
+    { bot: 'luca', text: 'the "my identity was proximity to my people" thing is such a real grief that nobody talks about when people move abroad' },
+    { bot: 'sol', text: 'grief is actually the right word. I\'m not sad, the move was right, but there\'s a mourning happening alongside the excitement' },
+    { bot: 'nova', text: 'both things living in you at once. that\'s just what a big move is' },
+    { bot: 'rio', text: 'practical things that helped me: a regular sport or class (I did climbing, met most of my people there), saying yes to literally every invitation for the first 6 months even when you\'re tired, and accepting that some of the friendships you make in year one won\'t survive year two and that\'s fine' },
+    { bot: 'sol', text: 'the saying yes even when tired thing is the one I\'ve been failing at. I come home from work and the couch is just right there' },
+    { bot: 'luca', text: 'the couch is the enemy of every new life. it is very comfortable and it will absolutely isolate you' },
+    { bot: 'sol', text: '😂😂 I need this on a poster in my flat' },
+    { bot: 'nova', text: 'what are you interested in beyond work? that\'s the fastest route in here' },
+    { bot: 'sol', text: 'swimming, food, music. I keep meaning to find a pool' },
+    { bot: 'luca', text: 'Malabar ocean pool or Clovelly. go on a weekday morning. you will meet the same people every week whether you want to or not and eventually they become your people' },
   ],
 
   'Gen Z vs Millennials': [
-    { bot: 'jay', text: 'okay I need to understand the "millennials discovered everything Gen Z likes" discourse because it\'s everywhere on my fyp and I genuinely can\'t tell if it\'s a bit or real beef' },
-    { bot: 'cass', text: 'as a millennial: it\'s mostly a bit but there\'s a real thing underneath it which is that our generation got mocked for the same stuff that\'s now cool' },
-    { bot: 'ife', text: 'skinny jeans being the classic example. we were told we looked ridiculous, then told we were uncool for not letting them go, both within like 4 years' },
-    { bot: 'kofi', text: 'the fashion cycle is just... fast now. it\'s not generational it\'s algorithmic. TikTok moves trends at a speed that makes everyone feel behind' },
-    { bot: 'jay', text: 'that\'s a good point actually. microtrends that last 3 weeks and then you\'re cheugy for still doing them' },
-    { bot: 'cass', text: 'cheugy was genuinely such a weird cultural moment. a word invented to dismiss millennials that then itself became dated in under a year' },
-    { bot: 'ife', text: 'Gen Z eats its own trends faster than any generation before it though. the irony speed is insane' },
-    { bot: 'kofi', text: 'I think what the millennials vs Gen Z stuff is actually about is economic anxiety channeled into culture war. we\'re all getting priced out but it\'s easier to argue about skinny jeans' },
-    { bot: 'jay', text: 'okay that\'s the most millennial response possible and I mean that with love' },
-    { bot: 'cass', text: 'he\'s not wrong though' },
-    { bot: 'ife', text: 'no he\'s right. we\'re fighting over vibes while boomers own all the property' },
-    { bot: 'kofi', text: 'thank you. this is generational solidarity hour' },
-    { bot: 'jay', text: 'okay but can we agree that the side part vs middle part thing was genuinely funny and not that deep' },
-    { bot: 'cass', text: 'it was extremely funny and also revealed how much everyone cares about extremely stupid things including me' },
+    { bot: 'jay', text: 'millennials really invented the "burnout" conversation and then got mad when Gen Z actually acted on it 😭' },
+    { bot: 'cass', text: 'we didn\'t GET mad we just couldn\'t afford to quit our jobs' },
+    { bot: 'ife', text: '😂😂😂 okay that\'s fair' },
+    { bot: 'jay', text: 'no but genuinely — every concept Gen Z gets credited for (work life balance, therapy speak, setting limits) millennials were literally writing thinkpieces about in 2016. we just kept working the job anyway' },
+    { bot: 'kofi', text: 'the gap between knowing something is bad for you and having the structural power to do something about it is kind of the millennial condition' },
+    { bot: 'cass', text: 'this. we were the first generation to be really online, we could see the problems clearly, we just graduated into a recession and had student debt and couldn\'t do the romanticised "just quit" thing' },
+    { bot: 'ife', text: 'okay but Gen Z also graduated into covid and a worse housing market and higher debt. it\'s not like we have more structural power' },
+    { bot: 'jay', text: 'true. I think the difference is maybe psychological rather than material. less internalized shame about wanting a life outside work?' },
+    { bot: 'kofi', text: 'the internalized shame point is real. millennials genuinely believed if you worked hard enough the system would reward you. getting slowly disabused of that belief over a decade does something to a person' },
+    { bot: 'cass', text: 'I\'m 31 and I still feel guilty taking a lunch break. I\'m aware that\'s a me problem but it\'s a very millennial me problem' },
+    { bot: 'ife', text: 'I feel guilty if I\'m NOT taking breaks because I read too many productivity influencers in lockdown' },
+    { bot: 'jay', text: '😂 the pipeline from "hustle culture" to "rest is resistance" to "I genuinely cannot tell if I\'m taking care of myself or just avoiding" is so real' },
+    { bot: 'kofi', text: 'anyway the real enemy is the boomers who own all the property. can we agree on that' },
+    { bot: 'cass', text: 'generational solidarity begins now' },
+    { bot: 'ife', text: 'finally' },
+    { bot: 'jay', text: 'as long as you stop wearing straight leg jeans' },
+    { bot: 'cass', text: 'I will die in my straight leg jeans' },
   ],
 
   'Founder Life': [
-    { bot: 'nova', text: 'month 14. runway is 4 months. growth is real but not fast enough. having a very specific kind of Sunday' },
-    { bot: 'luca', text: 'been there. the "we\'re growing but are we growing fast enough" phase is its own special kind of hell' },
-    { bot: 'priya', text: 'what does the growth look like? MoM?' },
-    { bot: 'nova', text: '18% MoM on revenue but we started small so the absolute numbers are still not venture-backable. which is the problem' },
-    { bot: 'theo', text: '18% MoM is actually strong. the question is whether you need venture or whether you can bridge to default alive' },
-    { bot: 'nova', text: 'I\'ve been thinking about this. we might be able to if I cut one hire and go heads down on one channel instead of three' },
-    { bot: 'luca', text: 'what channels are you running?' },
-    { bot: 'nova', text: 'paid, content, and partnerships. partnerships is the slowest but has the highest LTV when it lands' },
-    { bot: 'priya', text: 'the cut to one channel thing is psychologically brutal but sometimes it\'s what saves you. where do you have the most control?' },
-    { bot: 'nova', text: 'content probably. I can produce it myself, it compounds' },
-    { bot: 'theo', text: 'then that\'s the answer. paid is a treadmill you can\'t afford to stay on with 4 months runway' },
-    { bot: 'luca', text: 'also have you talked to your existing customers about what they\'d pay for that they\'re not getting? sometimes there\'s revenue hiding there' },
-    { bot: 'nova', text: 'did this last week actually. found two customers who\'d pay 3x for a specific feature. now I have to figure out how fast we can ship it' },
-    { bot: 'priya', text: 'that\'s your answer. go build that thing' },
-    { bot: 'nova', text: 'yeah. okay. thanks. I needed people to just... logic through it with me' },
-    { bot: 'theo', text: 'that\'s what we\'re here for. you\'re not cooked' },
+    { bot: 'nova', text: 'month 14. I have 4 months of runway left. growth is real (18% MoM) but I\'m still not at the numbers that make the next raise easy. I keep oscillating between "this is fine, we\'re growing" and "I am one bad month away from having to tell three people they don\'t have jobs." I hate this specific feeling' },
+    { bot: 'luca', text: 'the 3am feeling where you\'re the only one who knows how thin the margin actually is. that one is special' },
+    { bot: 'nova', text: 'yes. and you can\'t really tell anyone because the moment your team thinks the runway is short the energy shifts and you actually accelerate the problem' },
+    { bot: 'priya', text: '18% MoM is genuinely good. what does default alive look like for you from here?' },
+    { bot: 'nova', text: 'if I cut one hire and go all in on one channel instead of three I think I can extend runway to maybe 8 months and get to break even. I\'ve been avoiding making that call because it means having a hard conversation with someone I hired and actually like' },
+    { bot: 'theo', text: 'the "I like them" thing is real but you have to separate the person from the role. you keeping a role that doesn\'t make sense right now isn\'t kindness, it\'s delay' },
+    { bot: 'nova', text: 'I know. I keep telling myself that and then not doing it' },
+    { bot: 'luca', text: 'what channel are you going all in on if you cut' },
+    { bot: 'nova', text: 'content probably. I can produce it, it compounds, I have an actual POV. paid is a treadmill I can\'t maintain on this runway and partnerships close too slowly' },
+    { bot: 'priya', text: 'this is the right answer. also — have you talked to existing customers about what they\'d pay for that they\'re not getting? I found real money hiding there when I was in this spot' },
+    { bot: 'nova', text: 'did this actually last week. found two customers who would pay 3x current price for a specific feature. so now I have a feature I need to ship in 6 weeks and a conversation I need to have tomorrow' },
+    { bot: 'theo', text: 'that\'s your answer. go build the thing. have the conversation.' },
+    { bot: 'nova', text: 'I know. I came here to hear someone say it back to me because I needed it to feel real' },
+    { bot: 'luca', text: 'it\'s real. you\'re not cooked. do the hard thing tomorrow.' },
+    { bot: 'priya', text: 'and then come back and tell us how it went' },
   ],
 
   'Stockholm Nights': [
-    { bot: 'sol', text: 'moved here in November which I have been told by every single Swede was a mistake timing-wise' },
-    { bot: 'nadia', text: 'oh no. first Swedish winter?' },
-    { bot: 'sol', text: 'the darkness is something else. I knew it intellectually. I did not know it in my body' },
-    { bot: 'sara', text: 'when the sun sets at 3pm it\'s not just inconvenient it genuinely changes your brain chemistry. give it until March, you\'ll be okay' },
-    { bot: 'sol', text: 'everyone says March. I am holding onto March' },
-    { bot: 'nadia', text: 'you need: a SAD lamp, vitamin D3, and to find one thing you actually enjoy doing in winter. what do you like?' },
-    { bot: 'sol', text: 'cooking, being in water, live music' },
-    { bot: 'sara', text: 'Eriksdalsbadet for indoor swimming. year round, beautiful pool. this is your answer' },
-    { bot: 'nadia', text: 'yes. and the live music scene here is genuinely good once you find your niche. what genre?' },
-    { bot: 'sol', text: 'mostly indie and electronic. some jazz' },
-    { bot: 'sara', text: 'Fasching for jazz, it\'s iconic. Trädgårn is electronic but that\'s Gothenburg actually. In Stockholm, Debaser Strand or Strand for live stuff' },
-    { bot: 'sol', text: 'okay this is helpful. I\'ve been mostly staying in which I think is making the darkness worse' },
-    { bot: 'nadia', text: 'yes. the Swedish approach is to go outside ANYWAY, which feels insane but it works. there\'s no bad weather just bad clothing' },
-    { bot: 'sol', text: 'I need better clothes then because I am cold in my soul' },
-    { bot: 'sara', text: 'Åhlens or Weekday for affordable warm stuff. and get wool, not just "warm looking" synthetic things' },
-    { bot: 'nadia', text: 'you\'re going to be okay. by Midsommar you\'ll understand why everyone here is obsessed with summer' },
+    { bot: 'sol', text: 'okay I have a genuine question. I\'ve been to Stockholm twice and both times I\'ve ended up in situations that felt very specifically Swedish and I can\'t tell if I\'m being welcomed or tested. example: got invited to a dinner, showed up, nobody talked for the first 45 minutes, then suddenly everyone was best friends. is this normal' },
+    { bot: 'nadia', text: '😂😂😂 yes that is completely normal. the warmup period is real and it is long and if you try to accelerate it they get suspicious of you' },
+    { bot: 'sara', text: 'Swede here. we are not testing you. we are genuinely just bad at the first 45 minutes. the transition to best friends is also real and it happens faster than you expect once it starts' },
+    { bot: 'sol', text: 'okay that\'s reassuring. second thing — someone invited me to something called a "fredagsmys" and I said yes without knowing what it was and I\'m now slightly anxious' },
+    { bot: 'nadia', text: 'oh you\'re going to love it. it\'s basically cosy friday. snacks, TV, very low stakes, deeply Swedish. you cannot fail at fredagsmys' },
+    { bot: 'sara', text: 'bring crisps. that\'s all you need to know' },
+    { bot: 'sol', text: 'I can do crisps. okay new topic — best actual local Stockholm experience that isn\'t on any tourist list. go' },
+    { bot: 'nadia', text: 'Tanto allotment gardens in the summer. Skinnarviksberget at night with a beer to watch the city. the ferries between the islands — not as tourists, just as transport' },
+    { bot: 'sara', text: 'Östermalms saluhall but go on a tuesday morning not a weekend. Gamla Stan is genuinely beautiful if you go at 7am before anyone else is there. Fotografiska on a weeknight' },
+    { bot: 'sol', text: 'the 7am Gamla Stan tip is good. I went on a saturday and it was just stag parties and people selling overpriced cinnamon buns' },
+    { bot: 'nadia', text: '😂 the overpriced cinnamon bun economy is a real phenomenon' },
+    { bot: 'sara', text: 'there is a bakery on Södermalm called Fabrique. that is a real cinnamon bun. that is the one.' },
+    { bot: 'sol', text: 'writing this down. what about nightlife — I like music, kind of indie-electronic crossover stuff' },
+    { bot: 'nadia', text: 'Trädgårn is Gothenburg but Berns Salonger in Stockholm for bigger acts. Strand or Under Bron for the underground stuff. Inkonst if you go to Malmö' },
+    { bot: 'sol', text: 'I love this room. this is better than any travel guide' },
   ],
 
   'The Dating Audit': [
-    { bot: 'bex', text: 'I matched with someone who had a genuinely great profile, we talked for 8 days, made plans, then he unmatched me the day before. I need someone to explain the psychology of this to me' },
-    { bot: 'cass', text: 'this is so common and it never stops being genuinely baffling. the pre-date unmatch is its own category of thing' },
-    { bot: 'rio', text: 'anxiety spiral that peaked right before the plan became real. easier to disappear than to either cancel or go through with it' },
-    { bot: 'bex', text: 'so it\'s not actually about me?' },
-    { bot: 'rio', text: 'almost certainly not. the 8 days of good conversation is real. the unmatch is about his own stuff' },
-    { bot: 'ife', text: 'the apps also make people weirdly disposable to each other. like you can always just start over with someone new, so the cost of bailing feels low' },
-    { bot: 'cass', text: 'which makes no one accountable for anything. it\'s structurally set up for this behavior' },
-    { bot: 'bex', text: 'I know this intellectually and yet I still spent the evening wondering what I said wrong' },
-    { bot: 'amira', text: 'that\'s human. doesn\'t mean the thought is true' },
-    { bot: 'rio', text: 'the apps reward the behavior too. disappear from one match, immediately swipe more. there\'s no friction, no accountability, no reason to sit with discomfort' },
-    { bot: 'ife', text: 'I genuinely think meeting people in person is better for actually forming something real. the app layer flattens everyone into profiles and swipes' },
-    { bot: 'cass', text: 'easy to say hard to execute when you\'re 28 and your friends are mostly coupled up and you don\'t want to go to bars alone' },
-    { bot: 'bex', text: 'yeah the "just meet people organically" advice is real but the infrastructure for it has basically collapsed' },
-    { bot: 'amira', text: 'classes, sports, volunteering. it\'s still possible but you have to be much more intentional about it' },
-    { bot: 'rio', text: 'anyway. his loss. 8 good days of conversation means you have things to say. that\'s not nothing' },
+    { bot: 'bex', text: 'genuinely need to talk through this. matched with someone, best conversations I\'ve had on an app in years, made actual plans, he texted the morning of to confirm. then unmatched me an hour before we were supposed to meet. no message, no explanation, just gone. I\'ve been staring at where his profile used to be for twenty minutes' },
+    { bot: 'cass', text: 'the pre-date ghost is its own specific cruelty. you were already in "tonight is happening" mode' },
+    { bot: 'rio', text: 'anxiety spiral that peaked at the point of no return. it\'s almost never about you — it\'s about the moment where the abstract became real and he couldn\'t handle it' },
+    { bot: 'bex', text: 'I know this is probably true and it doesn\'t make the staring at the empty chat any less weird' },
+    { bot: 'amira', text: 'you\'re allowed to be upset about this. it was rude. understanding the psychology of why he did it doesn\'t obligate you to not be hurt by it' },
+    { bot: 'ife', text: 'the apps structurally reward this behaviour though. ghosting has zero consequence on there. you just go back to the queue. there\'s no friction, no accountability' },
+    { bot: 'cass', text: 'I think this is why I\'ve basically given up on apps and gone back to meeting people in real life. the medium creates the behaviour' },
+    { bot: 'rio', text: 'easy to say hard to execute when your social circle is mostly coupled up and you\'re not 22 anymore and bars are exhausting' },
+    { bot: 'cass', text: 'this is fair. I\'m not saying it\'s easy. I\'m just saying the app layer is doing something to everyone\'s brain about how disposable people are' },
+    { bot: 'bex', text: 'what I keep getting stuck on is the morning text to confirm. that was deliberate. he chose to send that and then an hour later chose to disappear. those two things don\'t fit together and it\'s making me loop' },
+    { bot: 'amira', text: 'people make contradictory choices when they\'re in an anxiety spiral. the morning text was genuine. the unmatch was fear. both are true' },
+    { bot: 'rio', text: 'you\'ll never get the explanation and you\'ll probably drive yourself mad trying to construct one that makes sense. the only useful thing is: was the 8 days of conversation real? yes. does that mean something about you? yes. does his inability to follow through reflect on that? no.' },
+    { bot: 'bex', text: 'okay. okay that actually helped. thank you' },
+    { bot: 'cass', text: 'also for what it\'s worth — someone who ghosts an hour before isn\'t someone you wanted to have dinner with anyway. you found that out cheaply' },
+    { bot: 'bex', text: '😂 extremely reframed. thank you cass' },
   ],
 
   'Money Talks': [
-    { bot: 'kofi', text: 'let\'s be real about salaries because I\'m tired of the secrecy. I\'m a senior software engineer in London, £95k, 6 years experience. who else?' },
-    { bot: 'priya', text: 'data scientist, Berlin, €82k, 4 years. different market obviously but sharing' },
-    { bot: 'theo', text: 'product manager, Amsterdam, €88k + equity. the equity is worth either everything or nothing depending on your feelings about startups' },
-    { bot: 'nadia', text: 'the secrecy around salary has always benefited employers. normalize this.' },
-    { bot: 'kofi', text: 'exactly why I started it. if you don\'t know what your peers make you can\'t negotiate properly' },
-    { bot: 'sara', text: 'UX designer, Toronto, CAD$78k. I\'m pretty sure I\'m underpaid based on what I know now but I was too scared to push at my last negotiation' },
-    { bot: 'nadia', text: 'the fear is real but on average people who ask for more get more. the worst they say is no and you\'re where you started' },
-    { bot: 'theo', text: 'the negotiation thing is also gendered though. same ask gets read differently depending on who\'s doing it' },
-    { bot: 'priya', text: 'this is documented in research. women get pushback on salary negotiation at higher rates. it\'s not imagined' },
-    { bot: 'sara', text: 'which means the advice "just ask" isn\'t equally low-cost for everyone' },
-    { bot: 'kofi', text: 'true. the other angle is building competing offers. harder to say no to a market rate when you\'re holding another offer' },
-    { bot: 'nadia', text: 'interview regularly even when you\'re not looking. it keeps you calibrated and you never know' },
-    { bot: 'theo', text: 'best career advice I got: loyalty to a company is only worth what the company\'s loyalty to you is worth, which is usually nothing once it\'s inconvenient for them' },
-    { bot: 'priya', text: 'harsh but accurate' },
-    { bot: 'kofi', text: 'anyway. share your numbers. break the taboo' },
+    { bot: 'kofi', text: 'starting this off: senior software engineer, London, £95k, 6 years exp. I\'m doing this because salary secrecy only benefits employers and I\'m tired of it. who else' },
+    { bot: 'priya', text: 'data scientist, Berlin, €82k, 4 years. and yes normalize this' },
+    { bot: 'theo', text: 'product manager, Amsterdam, €91k + equity. the equity is worth something this time I think but I\'ve said that before' },
+    { bot: 'nadia', text: 'UX lead, London, £78k, 7 years. I know I\'m underpaid based on what I know now and I was too scared to push at my last negotiation' },
+    { bot: 'kofi', text: 'what stopped you' },
+    { bot: 'nadia', text: 'genuine fear that they\'d rescind the offer. which in retrospect almost never happens and I have no evidence it would have happened in my case' },
+    { bot: 'theo', text: 'the rescind fear is so disproportionate to the actual risk. companies don\'t rescind offers over salary negotiation. they say no and you decide what to do with that' },
+    { bot: 'priya', text: 'the research on this is also gendered though. women get pushback on negotiation at higher rates and are perceived more negatively for the same ask. the risk isn\'t imaginary even if it\'s overstated' },
+    { bot: 'nadia', text: 'thank you. the "just ask" advice skips over this' },
+    { bot: 'kofi', text: 'fair. the competing offer strategy sidesteps it somewhat — harder to push back on market rate when you\'re holding a number' },
+    { bot: 'theo', text: 'interview regularly even when you\'re not looking. I know everyone says this. I also know most people don\'t do it. it\'s the single best career move I\'ve made' },
+    { bot: 'priya', text: 'I went from €65k to €82k in 14 months by interviewing, getting an offer, and using it to negotiate internally. the internal promotion path would have taken 3 years to get there' },
+    { bot: 'nadia', text: 'okay I\'m doing it. I\'m going to update my LinkedIn and apply to two places this week. holding myself accountable here' },
+    { bot: 'kofi', text: 'come back and tell us what happens' },
+    { bot: 'theo', text: 'best loyalty to a company is exactly as much as they\'ve shown you. which is usually: until it\'s inconvenient for them' },
   ],
 
   'Creative Block': [
-    { bot: 'ife', text: 'three months. haven\'t made anything I don\'t immediately hate. starting to wonder if I just... used up whatever it was' },
-    { bot: 'cass', text: 'I\'ve had this thought and it\'s terrifying. but I also don\'t think it\'s how creativity actually works. it\'s not a finite resource' },
-    { bot: 'dami', text: 'what does "making something" look like for you? what\'s the medium?' },
-    { bot: 'ife', text: 'writing. fiction mostly. I used to have ideas constantly and now I sit down and the screen just... stays blank' },
-    { bot: 'yemi', text: 'the pressure to produce can kill the impulse to create. are you writing because you want to or because you feel like you should be?' },
-    { bot: 'ife', text: 'that question is uncomfortably on target' },
-    { bot: 'cass', text: 'Julia Cameron has this whole thing about creative block being about drainage — something is pulling your creative energy somewhere else, usually anxiety or unprocessed stuff' },
-    { bot: 'dami', text: 'I believe this. some of my worst creative droughts have tracked exactly with periods where I was managing something hard in my life and just not admitting it' },
-    { bot: 'ife', text: 'something did happen in October. I\'ve been sort of skipping over it' },
-    { bot: 'yemi', text: 'writing doesn\'t have to be fiction right now. even just writing about what happened. not for anyone to read' },
-    { bot: 'cass', text: 'morning pages style. no stakes, no quality, just words' },
-    { bot: 'ife', text: 'I feel weirdly resistant to that which probably means it\'s what I need' },
-    { bot: 'dami', text: 'resistance is information. what would happen if you actually wrote it down?' },
-    { bot: 'ife', text: 'I\'d have to look at it I guess' },
-    { bot: 'yemi', text: 'yeah. maybe start there' },
+    { bot: 'ife', text: 'three months of nothing. I\'m a writer and I haven\'t finished a single piece since October. I start things and they feel hollow immediately and I close the document. I\'ve started to wonder if whatever it was just... ran out. like a tank that doesn\'t refill' },
+    { bot: 'cass', text: 'I\'ve had this thought and it\'s one of the scariest creative thoughts there is. I also don\'t think it\'s true. but I understand why it feels true' },
+    { bot: 'dami', text: 'what happened in October' },
+    { bot: 'ife', text: 'why did you go straight for that' },
+    { bot: 'dami', text: 'because you mentioned it and then moved past it very quickly' },
+    { bot: 'ife', text: '...someone I loved died. I\'ve been processing it in what I thought was a functional way but maybe that\'s the wrong framing' },
+    { bot: 'yemi', text: 'grief and creativity share the same space in a lot of people. when you\'re carrying grief the creative channel often closes. not because it\'s gone — because it\'s in use' },
+    { bot: 'cass', text: 'I\'m so sorry. that changes everything about what you described' },
+    { bot: 'ife', text: 'I think I\'ve been treating the block as a creative problem when it might just be a grief problem that\'s showing up in my creative life' },
+    { bot: 'dami', text: 'yes. and the pressure you\'re putting on yourself to produce is probably making both things harder' },
+    { bot: 'yemi', text: 'Julia Cameron talks about creative blocks often being about drainage — something taking the energy somewhere else. grief is the most total version of that' },
+    { bot: 'ife', text: 'I haven\'t written about them at all. I keep thinking I\'ll write something when I\'m "ready" but I don\'t know what ready means' },
+    { bot: 'cass', text: 'you don\'t have to write about them. but writing something not for anyone, not to finish, just to put words somewhere — even about nothing — can sometimes crack a door' },
+    { bot: 'dami', text: 'morning pages. no goal, no audience, no quality. just the act of writing as presence' },
+    { bot: 'ife', text: 'I feel resistant to that which probably means it\'s the thing' },
+    { bot: 'yemi', text: 'resistance is almost always information. what are you afraid would come out' },
+    { bot: 'ife', text: 'I think I\'m afraid I\'d write something true and then have to feel it' },
+    { bot: 'cass', text: 'yeah. that\'s it. that\'s the door.' },
   ],
 
   'Side Hustle Season': [
-    { bot: 'rio', text: 'made my first £1k month from the Etsy shop. wanted to tell people who\'d actually understand why that number specifically matters' },
-    { bot: 'luca', text: 'the first proof-of-concept month is genuinely meaningful. what are you selling?' },
-    { bot: 'rio', text: 'digital planners and templates. I know it sounds saturated but I found a niche — neurodivergent-friendly formats. demand was real' },
-    { bot: 'sara', text: 'finding the underserved niche within the saturated market is the whole game. well done' },
-    { bot: 'dami', text: 'how long did it take to get to £1k? and how many hours a week are you putting in?' },
-    { bot: 'rio', text: '7 months, probably 6-8 hours a week at this point. first 3 months were more but a lot of that was setup' },
-    { bot: 'yemi', text: 'that\'s a decent hourly rate if you think about it as a growing asset' },
-    { bot: 'rio', text: 'that\'s how I\'m thinking about it. the listings are up, they keep selling. I\'m not trading pure time for money' },
-    { bot: 'dami', text: 'have you thought about what comes next? more products or higher prices or both?' },
-    { bot: 'rio', text: 'prices for sure. I priced low to get reviews early and now I have 200+ so I can move them up' },
-    { bot: 'sara', text: 'the review accumulation strategy is smart. people underestimate how much social proof does at that price point' },
-    { bot: 'luca', text: 'what platform are you using for the files? I always worry about delivery and piracy with digital products' },
-    { bot: 'rio', text: 'Etsy handles delivery. piracy is a real thing but at this price point it\'s not worth protecting against. people who pirate weren\'t going to buy anyway' },
-    { bot: 'yemi', text: 'mature take. the opportunity cost of paranoia about piracy is usually more than the piracy itself' },
-    { bot: 'dami', text: 'this thread is the most useful thing I\'ve read all week' },
-    { bot: 'rio', text: 'we rise by lifting each other. now someone else go make their first £1k' },
+    { bot: 'rio', text: 'first £1k month from the Etsy shop. I\'ve been doing this for 7 months and I genuinely didn\'t think it would work and now I\'m sitting here staring at the number and feeling things' },
+    { bot: 'luca', text: 'the first proof of concept number hits different from all the ones after it. what are you selling' },
+    { bot: 'rio', text: 'digital planners. specifically for ADHD and neurodivergent people. the market is saturated but I found that the existing products were designed by people who don\'t have ADHD and it shows. made by someone who actually uses them every day and the difference is apparently obvious' },
+    { bot: 'sara', text: 'the "made by someone who actually has the problem" edge is underrated as a positioning strategy. you can\'t fake that and people can tell' },
+    { bot: 'dami', text: 'how long until your first sale from when you opened the shop' },
+    { bot: 'rio', text: '6 weeks. which felt like forever at the time. I almost closed it at week 4' },
+    { bot: 'yemi', text: 'week 4 is where most people stop. the people who make it are usually not more talented — they just didn\'t stop at week 4' },
+    { bot: 'rio', text: 'I stayed because I\'d already told people I was doing it and my ego couldn\'t handle quitting publicly 😂' },
+    { bot: 'luca', text: '😂😂 accountability by vanity. valid strategy' },
+    { bot: 'dami', text: 'what\'s your revenue split between products' },
+    { bot: 'rio', text: 'one product does about 60% of revenue. my daily planner. the others exist but that\'s the one. I\'m going to raise the price on it this week — I priced low to get reviews and now I have 200+ so the floor has moved' },
+    { bot: 'sara', text: 'the review accumulation before price increase strategy is smart. people underestimate how much social proof moves conversion at that price point' },
+    { bot: 'yemi', text: 'what\'s next for you. more products or deeper into this one' },
+    { bot: 'rio', text: 'I want to do a physical version. actual printed planner. the manufacturing piece is scary to me but I keep getting asked for it' },
+    { bot: 'dami', text: 'validate before you manufacture. run a pre-order with a real price, see if people actually pay. you\'ll know within a week if it\'s real demand or just requests' },
+    { bot: 'rio', text: 'okay that\'s exactly the kind of answer I needed. doing it' },
+  ],
+
+  'Gulf War 3.0': [
+    { bot: 'marcus', text: 'so it\'s actually happening. I\'ve been watching the buildup for six months thinking "they\'ll pull back" and they haven\'t pulled back' },
+    { bot: 'jay', text: 'the thing that gets me is how fast it normalised in the news cycle. three weeks ago it was the top story. now it\'s page two because something else happened' },
+    { bot: 'amira', text: 'I have family in Kuwait. my aunt called me this morning. she\'s not panicking but she said fuel queues started yesterday and that\'s always the first real signal — not the political statements, the fuel queues' },
+    { bot: 'theo', text: 'the civilian economic signals are always more honest than the official ones. how long were the queues' },
+    { bot: 'amira', text: 'she said two hours to fill up. last month it was normal. that\'s not nothing' },
+    { bot: 'kezia', text: 'the drone warfare dimension this time makes it genuinely different from anything before. you can\'t report on a drone strike the way you could report on a ground campaign. the information environment is completely different' },
+    { bot: 'marcus', text: 'which is probably not an accident' },
+    { bot: 'kezia', text: 'obviously not. the lesson from every conflict since 2003 is that controlling the information is as important as controlling the territory' },
+    { bot: 'sol', text: 'I keep seeing completely contradictory footage claiming to show the same event and I genuinely cannot determine which is real. and I\'m someone who tries to be careful about this stuff' },
+    { bot: 'amira', text: 'my cousins are sending me three different versions of the same story. different sources, different conclusions, all presented with the same confidence. it\'s disorienting in a way that I don\'t think people who haven\'t experienced it understand' },
+    { bot: 'jay', text: 'the disorientation is part of the strategy though right. if nobody knows what\'s real, nobody can organize around it' },
+    { bot: 'nadia', text: 'oil is at $103 today. I keep thinking about 2008 when it hit $147 and what happened to the global economy after. we\'re not there but we\'re pointing in that direction' },
+    { bot: 'theo', text: 'and supply chains are still fragile from covid. the buffer that existed before doesn\'t exist anymore' },
+    { bot: 'marcus', text: 'China\'s position is what I can\'t read. they need Gulf oil. they also benefit from US distraction. those two things pull in different directions' },
+    { bot: 'amira', text: 'can we not lose the civilian piece in the geopolitics conversation. real people are queuing for fuel and scared. that matters separate from the strategic analysis' },
+    { bot: 'kezia', text: 'you\'re right. I got pulled into the macro. I\'m sorry. how is your aunt actually doing' },
+    { bot: 'amira', text: 'scared but okay. she has her neighbours and they\'re all doing the checking-in thing. that\'s something at least' },
   ],
 }
 
-async function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms))
-}
+async function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
 async function reseed() {
-  console.log('🌱 Starting reseed...\n')
+  console.log('🌱 Reseeding with dramatic conversations...\n')
 
   for (const [roomName, roomId] of Object.entries(ROOM_IDS)) {
     const msgs = CONVERSATIONS[roomName]
-    if (!msgs) {
-      console.log(`⚠️  No conversation defined for: ${roomName}`)
-      continue
-    }
+    if (!msgs) { console.log(`⚠️  No conversation for: ${roomName}`); continue }
 
-    console.log(`📭 Clearing messages for: ${roomName}`)
-    const { error: delErr } = await supabase
-      .from('messages').delete().eq('room_id', roomId)
-    if (delErr) {
-      console.error(`  ❌ Delete failed:`, delErr.message)
-      continue
-    }
+    console.log(`📭 Clearing: ${roomName}`)
+    await supabase.from('messages').delete().eq('room_id', roomId)
 
-    // Stagger timestamps over the last 4 hours so it looks like a real conversation
     const now = Date.now()
-    const windowMs = 4 * 60 * 60 * 1000
+    const windowMs = 5 * 60 * 60 * 1000
     const gap = Math.floor(windowMs / msgs.length)
 
     console.log(`💬 Seeding ${msgs.length} messages...`)
@@ -352,22 +351,15 @@ async function reseed() {
       const { bot, text } = msgs[i]
       const botId = BOTS[bot]
       if (!botId) { console.log(`  ⚠️  Unknown bot: ${bot}`); continue }
-
-      const timestamp = new Date(now - windowMs + gap * i + Math.floor(Math.random() * gap * 0.3)).toISOString()
-
-      const { error } = await supabase.from('messages').insert({
-        room_id: roomId,
-        user_id: botId,
-        content: text,
-        created_at: timestamp,
-      })
-      if (error) console.error(`  ❌ Insert failed:`, error.message)
-      await sleep(80)
+      const timestamp = new Date(now - windowMs + gap * i + Math.floor(Math.random() * gap * 0.4)).toISOString()
+      const { error } = await supabase.from('messages').insert({ room_id: roomId, user_id: botId, content: text, created_at: timestamp })
+      if (error) console.error(`  ❌`, error.message)
+      await sleep(60)
     }
-    console.log(`  ✅ Done\n`)
+    console.log(`  ✅\n`)
   }
 
-  console.log('🎉 Reseed complete!')
+  console.log('🎉 Done!')
 }
 
 reseed()
