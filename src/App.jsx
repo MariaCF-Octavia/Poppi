@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase.jsx'
 import Auth from './pages/Auth'
 import Home from './pages/Home'
 import Room from './pages/Room'
+import Profile from './pages/Profile'
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -22,10 +23,18 @@ export default function App() {
 
   if (loading) return (
     <div style={{
-      height:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
-      background:'#000', color:'white', fontFamily:'sans-serif', fontSize:'24px', fontWeight:'700'
+      height: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: '#070003',
+      color: '#f5e0ea',
+      fontFamily: "'Playfair Display', Georgia, serif",
+      fontSize: '32px',
+      fontWeight: '700',
+      letterSpacing: '-0.03em',
     }}>
-      Poppi
+      poppi
     </div>
   )
 
@@ -34,6 +43,7 @@ export default function App() {
       <Route path="/auth" element={!session ? <Auth /> : <Navigate to="/" />} />
       <Route path="/" element={session ? <Home session={session} /> : <Navigate to="/auth" />} />
       <Route path="/room/:id" element={session ? <Room session={session} /> : <Navigate to="/auth" />} />
+      <Route path="/profile" element={session ? <Profile session={session} /> : <Navigate to="/auth" />} />
     </Routes>
   )
 }
