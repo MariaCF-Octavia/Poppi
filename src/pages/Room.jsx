@@ -37,6 +37,7 @@ export default function Room({ session }) {
   const messagesRef = useRef([])
   const roomNameRef = useRef(null)
   const seededRef = useRef(false)
+  const inputRef = useRef(null)
 
   useEffect(() => {
     fetchRoom()
@@ -57,13 +58,11 @@ export default function Room({ session }) {
           .single()
         const fullMsg = { ...payload.new, profiles: prof }
         setMessages(prev => {
-          // Prevent duplicates
           if (prev.find(m => m.id === fullMsg.id)) return prev
           const updated = [...prev, fullMsg]
           messagesRef.current = updated
           return updated
         })
-
         const botUsernames = Object.values(BOTS).map(b => b.username)
         const isBot = botUsernames.includes(prof?.username)
         if (!isBot && roomNameRef.current) {
@@ -73,7 +72,7 @@ export default function Room({ session }) {
       .subscribe()
 
     return () => supabase.removeChannel(channel)
-  }, [id]) // ← only [id], not [id, room]
+  }, [id])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -115,7 +114,6 @@ export default function Room({ session }) {
   async function seedRoom() {
     const seeds = SEED_MESSAGES[room.name]
     if (!seeds) return
-
     for (let i = 0; i < seeds.length; i++) {
       const seed = seeds[i]
       const bot = BOTS[seed.bot]
@@ -140,95 +138,151 @@ export default function Room({ session }) {
       content: newMsg.trim()
     })
     setNewMsg('')
+    inputRef.current?.focus()
   }
 
   function formatTime(ts) {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
+  function getInitials(name) {
+    return (name || '').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
+  }
+
   function getAvatarColor(username) {
-    const colors = ['#3d2fa8','#c4425a','#2890f0','#a060f0','#e86898','#28c060','#f08020']
+    const palette = ['#c0003a','#7c2d5e','#9b1d47','#2060c0','#1a7a4a']
     let hash = 0
     for (let c of (username || '')) hash = c.charCodeAt(0) + ((hash << 5) - hash)
-    return colors[Math.abs(hash) % colors.length]
+    return palette[Math.abs(hash) % palette.length]
+  }
+
+  // Group consecutive messages from same user
+  function groupMessages(msgs) {
+    const groups = []
+    msgs.forEach((msg, i) => {
+      const prev = msgs[i - 1]
+      const sameUser = prev && prev.user_id === msg.user_id
+      const withinMinute = prev && (new Date(msg.created_at) - new Date(prev.created_at)) < 60000
+      if (sameUser && withinMinute) {
+        groups[groups.length - 1].msgs.push(msg)
+      } else {
+        groups.push({ user_id: msg.user_id, profile: msg.profiles, msgs: [msg] })
+      }
+    })
+    return groups
   }
 
   if (!room) return (
-    <div style={{background:'#000',height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontFamily:'sans-serif'}}>
+    <div style={{background:'#070003', height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', color:'rgba(245,224,234,0.4)', fontFamily:"'DM Sans', sans-serif", fontSize:'14px'}}>
       Loading...
     </div>
   )
 
+  const messageGroups = groupMessages(messages)
+
   return (
     <div style={s.wrap}>
+
+      {/* ── HEADER ── */}
       <div style={s.header}>
-        <button style={s.back} onClick={() => navigate('/')}>←</button>
-        <div style={{...s.roomAv, background: getAvatarColor(room.name)}}>
-          {room.name.charAt(0).toUpperCase()}
+        <button style={s.backBtn} onClick={() => navigate('/')}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+        </button>
+        <div style={s.headerInfo}>
+          <div style={s.headerRoomAv}>
+            <span style={s.headerRoomAvText}>{getInitials(room.name)}</span>
+          </div>
+          <div>
+            <div style={s.headerName}>{room.name}</div>
+            <div style={s.headerSub}>
+              {room.is_private ? 'Private room' : 'Public room'}
+            </div>
+          </div>
         </div>
-        <div style={{flex:1}}>
-          <div style={s.roomName}>{room.name}</div>
-          <div style={s.roomSub}>{room.is_private ? 'Private room' : 'Public room'}</div>
+        <div style={s.livePill}>
+          <div style={s.liveDot} />
+          LIVE
         </div>
-        <div style={s.livePill}>Live</div>
       </div>
 
-      {/* Topic pin */}
+      {/* ── TOPIC CARD ── */}
       {room.topic && (
-        <div style={s.topicPin}>
-          <div style={s.topicLabel}>📌 Topic</div>
-          <div style={s.topicText}>{room.topic}</div>
+        <div style={s.topicCard}>
+          <div style={s.topicAccent} />
+          <div style={s.topicInner}>
+            <div style={s.topicLabel}>Today's topic</div>
+            <div style={s.topicText}>{room.topic}</div>
+          </div>
         </div>
       )}
 
+      {/* ── MESSAGES ── */}
       <div style={s.msgs}>
         {messages.length === 0 && (
-          <div style={s.empty}>Starting conversation...</div>
+          <div style={s.emptyState}>Starting conversation...</div>
         )}
-        {messages.map((msg) => {
-          const isOwn = msg.user_id === session.user.id
-          const name = msg.profiles?.display_name || msg.profiles?.username || 'Unknown'
-          const username = msg.profiles?.username || ''
-          const initial = name.charAt(0).toUpperCase()
-          const avatarUrl = msg.profiles?.avatar_url
+
+        {messageGroups.map((group, gi) => {
+          const isOwn = group.user_id === session.user.id
+          const name = group.profile?.display_name || group.profile?.username || 'Unknown'
+          const username = group.profile?.username || ''
+          const avatarUrl = group.profile?.avatar_url
 
           return (
-            <div key={msg.id} style={{...s.msgRow, flexDirection: isOwn ? 'row-reverse' : 'row'}}>
-              <div style={{...s.msgAv, background: isOwn ? 'linear-gradient(135deg,#b81840,#e8547a)' : getAvatarColor(username), overflow:'hidden'}}>
+            <div key={gi} style={{...s.msgGroup, flexDirection: isOwn ? 'row-reverse' : 'row'}}>
+              {/* Avatar - only show for first in group */}
+              <div style={{...s.msgAv, background: isOwn ? 'linear-gradient(135deg,#c0003a,#900030)' : getAvatarColor(username)}}>
                 {avatarUrl
                   ? <img src={avatarUrl} style={{width:'100%',height:'100%',objectFit:'cover'}} alt={name} />
-                  : initial
+                  : <span style={s.msgAvText}>{getInitials(name)}</span>
                 }
               </div>
-              <div style={{maxWidth:'75%'}}>
-                <div style={{...s.msgMeta, justifyContent: isOwn ? 'flex-end' : 'flex-start'}}>
+
+              <div style={{maxWidth:'76%', display:'flex', flexDirection:'column', gap:'3px', alignItems: isOwn ? 'flex-end' : 'flex-start'}}>
+                {/* Name + time */}
+                <div style={{...s.msgMeta, flexDirection: isOwn ? 'row-reverse' : 'row'}}>
                   <span style={s.msgName}>{isOwn ? 'You' : name}</span>
-                  <span style={s.msgTime}>{formatTime(msg.created_at)}</span>
+                  <span style={s.msgTime}>{formatTime(group.msgs[0].created_at)}</span>
                 </div>
-                <div style={{
-                  ...s.bubble,
-                  background: isOwn ? 'linear-gradient(135deg,#b81840,#e8547a)' : '#1a1a1a',
-                  borderTopLeftRadius: isOwn ? 14 : 3,
-                  borderTopRightRadius: isOwn ? 3 : 14
-                }}>
-                  {msg.content}
-                </div>
+
+                {/* Bubbles */}
+                {group.msgs.map((msg, mi) => (
+                  <div key={msg.id} style={{
+                    ...s.bubble,
+                    background: isOwn
+                      ? 'linear-gradient(135deg, #c0003a, #900030)'
+                      : '#1a0010',
+                    borderBottomRightRadius: isOwn && mi === group.msgs.length - 1 ? 4 : 14,
+                    borderBottomLeftRadius: !isOwn && mi === group.msgs.length - 1 ? 4 : 14,
+                    borderTopLeftRadius: !isOwn && mi === 0 ? 4 : 14,
+                    borderTopRightRadius: isOwn && mi === 0 ? 4 : 14,
+                    color: isOwn ? '#fff' : '#f5e0ea',
+                    border: isOwn ? 'none' : '1px solid rgba(192,0,58,0.15)',
+                  }}>
+                    {msg.content}
+                  </div>
+                ))}
               </div>
             </div>
           )
         })}
+
         <div ref={bottomRef} />
       </div>
 
-      <form style={s.inputWrap} onSubmit={sendMessage}>
+      {/* ── INPUT ── */}
+      <form style={s.inputArea} onSubmit={sendMessage}>
         <input
+          ref={inputRef}
           style={s.input}
-          placeholder={`Message ${room.name}...`}
+          placeholder={`Say something in ${room.name}...`}
           value={newMsg}
           onChange={e => setNewMsg(e.target.value)}
           autoComplete="off"
         />
-        <button style={s.sendBtn} type="submit" disabled={!newMsg.trim()}>
+        <button style={{...s.sendBtn, opacity: newMsg.trim() ? 1 : 0.4}} type="submit" disabled={!newMsg.trim()}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="22" y1="2" x2="11" y2="13"/>
             <polygon points="22 2 15 22 11 13 2 9 22 2"/>
@@ -240,25 +294,211 @@ export default function Room({ session }) {
 }
 
 const s = {
-  wrap: { height:'100vh', display:'flex', flexDirection:'column', background:'#000', color:'#fff', fontFamily:"'DM Sans', sans-serif" },
-  header: { flexShrink:0, padding:'12px 14px', borderBottom:'1px solid rgba(255,255,255,.08)', display:'flex', alignItems:'center', gap:'10px' },
-  back: { background:'none', border:'none', color:'#e8547a', fontSize:'20px', cursor:'pointer', padding:'4px', lineHeight:1 },
-  roomAv: { width:'36px', height:'36px', borderRadius:'10px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'16px', fontWeight:'800', flexShrink:0, color:'rgba(255,255,255,.9)' },
-  roomName: { fontSize:'15px', fontWeight:'700' },
-  roomSub: { fontSize:'11px', color:'rgba(255,255,255,.35)' },
-  livePill: { fontSize:'10px', fontWeight:'700', letterSpacing:'.08em', color:'#e8547a', background:'rgba(232,84,122,.12)', border:'1px solid rgba(232,84,122,.25)', padding:'4px 10px', borderRadius:'20px', flexShrink:0 },
-  topicPin: { flexShrink:0, padding:'10px 16px', background:'rgba(255,255,255,.03)', borderBottom:'1px solid rgba(255,255,255,.06)' },
-  topicLabel: { fontSize:'10px', color:'rgba(255,255,255,.3)', letterSpacing:'.06em', marginBottom:'3px' },
-  topicText: { fontSize:'13px', color:'rgba(255,255,255,.7)', lineHeight:1.4 },
-  msgs: { flex:1, overflowY:'auto', padding:'14px', display:'flex', flexDirection:'column', gap:'12px' },
-  msgRow: { display:'flex', gap:'8px', alignItems:'flex-start' },
-  msgAv: { width:'30px', height:'30px', borderRadius:'50%', border:'1px solid rgba(255,255,255,.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', fontWeight:'700', flexShrink:0 },
-  msgMeta: { display:'flex', alignItems:'baseline', gap:'6px', marginBottom:'4px' },
-  msgName: { fontSize:'12px', fontWeight:'600' },
-  msgTime: { fontSize:'10px', color:'rgba(255,255,255,.3)', fontFamily:'monospace' },
-  bubble: { display:'inline-block', padding:'9px 13px', borderRadius:'14px', fontSize:'14px', lineHeight:1.5, color:'#fff' },
-  empty: { color:'rgba(255,255,255,.3)', textAlign:'center', marginTop:'40px', fontSize:'14px' },
-  inputWrap: { flexShrink:0, padding:'10px 14px 16px', borderTop:'1px solid rgba(255,255,255,.08)', display:'flex', gap:'8px', alignItems:'center' },
-  input: { flex:1, background:'#111', border:'1px solid rgba(255,255,255,.1)', borderRadius:'12px', padding:'12px 16px', color:'#fff', fontSize:'14px', outline:'none', fontFamily:'inherit' },
-  sendBtn: { width:'42px', height:'42px', borderRadius:'12px', background:'linear-gradient(135deg,#c02048,#e8547a)', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 },
+  wrap: {
+    height: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    background: '#070003',
+    color: '#f5e0ea',
+    fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+  },
+
+  // Header
+  header: {
+    flexShrink: 0,
+    padding: '12px 16px',
+    borderBottom: '1px solid rgba(192,0,58,0.1)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    background: '#070003',
+  },
+  backBtn: {
+    width: '34px',
+    height: '34px',
+    borderRadius: '10px',
+    background: '#1a0010',
+    border: '1px solid rgba(192,0,58,0.15)',
+    color: '#f5e0ea',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+  headerInfo: { flex: 1, display: 'flex', alignItems: 'center', gap: '10px' },
+  headerRoomAv: {
+    width: '34px',
+    height: '34px',
+    borderRadius: '10px',
+    background: '#c0003a',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  headerRoomAvText: {
+    fontFamily: "'Space Mono', monospace",
+    fontSize: '11px',
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.9)',
+  },
+  headerName: {
+    fontFamily: "'Playfair Display', Georgia, serif",
+    fontSize: '15px',
+    fontWeight: '700',
+    color: '#f5e0ea',
+    letterSpacing: '-0.01em',
+  },
+  headerSub: { fontSize: '11px', color: 'rgba(245,224,234,0.3)' },
+  livePill: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+    fontSize: '9px',
+    fontFamily: "'Space Mono', monospace",
+    color: '#4ade80',
+    background: 'rgba(74,222,128,0.08)',
+    border: '1px solid rgba(74,222,128,0.18)',
+    padding: '4px 10px',
+    borderRadius: '100px',
+    letterSpacing: '0.06em',
+    flexShrink: 0,
+  },
+  liveDot: {
+    width: '5px',
+    height: '5px',
+    borderRadius: '50%',
+    background: '#4ade80',
+  },
+
+  // Topic card
+  topicCard: {
+    flexShrink: 0,
+    display: 'flex',
+    margin: '10px 16px',
+    borderRadius: '12px',
+    background: 'rgba(192,0,58,0.06)',
+    border: '1px solid rgba(192,0,58,0.18)',
+    overflow: 'hidden',
+  },
+  topicAccent: {
+    width: '3px',
+    flexShrink: 0,
+    background: 'linear-gradient(180deg, #c0003a, #900030)',
+  },
+  topicInner: { padding: '10px 14px' },
+  topicLabel: {
+    fontSize: '9px',
+    color: '#c0003a',
+    letterSpacing: '0.14em',
+    textTransform: 'uppercase',
+    marginBottom: '4px',
+    fontFamily: "'Space Mono', monospace",
+  },
+  topicText: {
+    fontSize: '13px',
+    color: '#f5e0ea',
+    lineHeight: 1.5,
+    fontWeight: '500',
+  },
+
+  // Messages
+  msgs: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '14px 16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '14px',
+    scrollbarWidth: 'none',
+  },
+  emptyState: {
+    color: 'rgba(245,224,234,0.25)',
+    textAlign: 'center',
+    marginTop: '40px',
+    fontSize: '13px',
+    fontStyle: 'italic',
+  },
+  msgGroup: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    gap: '8px',
+  },
+  msgAv: {
+    width: '30px',
+    height: '30px',
+    borderRadius: '10px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    overflow: 'hidden',
+  },
+  msgAvText: {
+    fontFamily: "'Space Mono', monospace",
+    fontSize: '9px',
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.9)',
+  },
+  msgMeta: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '6px',
+    marginBottom: '2px',
+  },
+  msgName: {
+    fontSize: '11px',
+    fontWeight: '600',
+    color: 'rgba(245,224,234,0.5)',
+  },
+  msgTime: {
+    fontSize: '9px',
+    color: 'rgba(245,224,234,0.25)',
+    fontFamily: "'Space Mono', monospace",
+  },
+  bubble: {
+    display: 'inline-block',
+    padding: '9px 13px',
+    borderRadius: '14px',
+    fontSize: '14px',
+    lineHeight: 1.5,
+    maxWidth: '100%',
+    wordBreak: 'break-word',
+  },
+
+  // Input
+  inputArea: {
+    flexShrink: 0,
+    padding: '10px 16px 20px',
+    borderTop: '1px solid rgba(192,0,58,0.1)',
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+    background: '#0e0007',
+  },
+  input: {
+    flex: 1,
+    background: '#1a0010',
+    border: '1px solid rgba(192,0,58,0.15)',
+    borderRadius: '12px',
+    padding: '12px 16px',
+    color: '#f5e0ea',
+    fontSize: '14px',
+    outline: 'none',
+    fontFamily: 'inherit',
+  },
+  sendBtn: {
+    width: '42px',
+    height: '42px',
+    borderRadius: '12px',
+    background: 'linear-gradient(135deg, #c0003a, #900030)',
+    border: 'none',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    transition: 'opacity 0.15s',
+  },
 }
