@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
+import BottomNav from '../components/BottomNav.jsx'
 
 function timeAgo(ts) {
   if (!ts) return ''
@@ -192,7 +193,8 @@ export default function Notifications({ session }) {
         </div>
       )}
 
-      <div style={{ height: '48px' }} />
+      <div style={{ height: '80px' }} />
+      <BottomNav />
     </div>
   )
 }

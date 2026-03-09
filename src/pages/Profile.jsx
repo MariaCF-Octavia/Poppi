@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
+import BottomNav from '../components/BottomNav.jsx'
 
 const SUPABASE_URL = 'https://exsnfnembkvuvsgdwcjp.supabase.co'
 
@@ -12,6 +13,7 @@ function makePublicUrl(path) {
 export default function Profile({ session }) {
   const navigate = useNavigate()
   const { theme, themeId, setTheme, allThemes } = useTheme()
+  const t = theme
   const [profile, setProfile] = useState(null)
   const [rooms, setRooms] = useState([])
   const [joinedRooms, setJoinedRooms] = useState([])
@@ -44,12 +46,10 @@ export default function Profile({ session }) {
   }
 
   async function saveProfile(e) {
-    e.preventDefault()
-    setSaving(true)
+    e.preventDefault(); setSaving(true)
     await supabase.from('profiles').update({ display_name: displayName.trim(), bio: bio.trim() }).eq('id', session.user.id)
-    await fetchProfile()
-    setEditing(false)
-    setSaving(false)
+    setProfile(prev => ({ ...prev, display_name: displayName.trim(), bio: bio.trim() }))
+    setEditing(false); setSaving(false)
   }
 
   async function uploadImage(file, pathKey, dbField, setUploading) {
@@ -57,12 +57,24 @@ export default function Profile({ session }) {
     setUploading(true)
     try {
       const ext = file.name.split('.').pop().toLowerCase()
-      const path = `${session.user.id}/${pathKey}.${ext}`
-      const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type })
-      if (error) { console.error('Upload error:', error.message); return }
-      const url = makePublicUrl(path)
-      await supabase.from('profiles').update({ [dbField]: url }).eq('id', session.user.id)
-      await fetchProfile()
+      const path = `${session.user.id}/${pathKey}-${Date.now()}.${ext}`
+      const { data: uploadData, error } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true, contentType: file.type })
+      if (error) {
+        alert(`Upload failed: ${error.message}`)
+        return
+      }
+      const url = makePublicUrl(uploadData?.path || path)
+      const { error: dbError } = await supabase.from('profiles').update({ [dbField]: url }).eq('id', session.user.id)
+      if (dbError) {
+        alert(`Save failed: ${dbError.message}`)
+        return
+      }
+      // Update local state immediately — no refetch needed
+      setProfile(prev => ({ ...prev, [dbField]: url }))
+    } catch (err) {
+      alert(`Unexpected error: ${err.message}`)
     } finally {
       setUploading(false)
     }
@@ -81,13 +93,17 @@ export default function Profile({ session }) {
     setUploadingCover(room.id)
     try {
       const ext = file.name.split('.').pop().toLowerCase()
-      const path = `room-covers/${room.id}.${ext}`
-      const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type })
-      if (error) { console.error('Cover upload error:', error.message); return }
-      const url = makePublicUrl(path)
-      await supabase.from('rooms').update({ cover_image: url }).eq('id', room.id)
-      // Update local state without refetch so rooms don't disappear
+      const path = `room-covers/${room.id}-${Date.now()}.${ext}`
+      const { data: uploadData, error } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true, contentType: file.type })
+      if (error) { alert(`Cover upload failed: ${error.message}`); return }
+      const url = makePublicUrl(uploadData?.path || path)
+      const { error: dbError } = await supabase.from('rooms').update({ cover_image: url }).eq('id', room.id)
+      if (dbError) { alert(`Cover save failed: ${dbError.message}`); return }
       setRooms(prev => prev.map(r => r.id === room.id ? { ...r, cover_image: url } : r))
+    } catch (err) {
+      alert(`Unexpected error: ${err.message}`)
     } finally {
       setUploadingCover(null)
       e.target.value = ''
@@ -97,8 +113,6 @@ export default function Profile({ session }) {
   function getInitials(name) {
     return (name || '').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
   }
-
-  const t = theme
 
   if (!profile) return (
     <div style={{ background: t.bg, height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.text3, fontFamily: "'DM Sans',sans-serif", fontSize: '14px' }}>
@@ -115,10 +129,11 @@ export default function Profile({ session }) {
       <div style={{
         position: 'relative', height: '180px', backgroundSize: 'cover', backgroundPosition: 'center',
         backgroundImage: profile.banner_url ? `url(${profile.banner_url})` : undefined,
-        background: profile.banner_url ? undefined : `linear-gradient(135deg,${t.surface} 0%,${t.accentGlow ? t.bg3 : t.surface2} 50%,${t.surface} 100%)`,
+        background: profile.banner_url ? undefined : `linear-gradient(135deg,${t.surface} 0%,${t.surface2} 50%,${t.surface} 100%)`,
       }}>
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.1),rgba(0,0,0,0.45))' }} />
-        <button style={{ position: 'absolute', top: 14, left: 14, width: 34, height: 34, borderRadius: 10, background: `${t.bg}cc`, border: `1px solid ${t.border2}`, color: t.text, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(4px)', zIndex: 2 }} onClick={() => navigate('/')}>
+        <button style={{ position: 'absolute', top: 14, left: 14, width: 34, height: 34, borderRadius: 10, background: `${t.bg}cc`, border: `1px solid ${t.border2}`, color: t.text, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(4px)', zIndex: 2 }}
+          onClick={() => navigate('/')}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
         </button>
         <button style={{ position: 'absolute', bottom: 12, right: 14, padding: '6px 12px', background: `${t.bg}cc`, border: `1px solid ${t.border2}`, borderRadius: 10, color: t.text2, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', backdropFilter: 'blur(4px)', zIndex: 2 }}
@@ -126,7 +141,7 @@ export default function Profile({ session }) {
           {uploadingBanner ? 'Uploading...' : '📷 Change banner'}
         </button>
         <input ref={bannerInputRef} type="file" accept="image/*" style={{ display: 'none' }}
-          onChange={e => uploadImage(e.target.files?.[0], 'banner', 'banner_url', setUploadingBanner)} />
+          onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f, 'banner', 'banner_url', setUploadingBanner) }} />
       </div>
 
       {/* AVATAR ROW */}
@@ -142,15 +157,12 @@ export default function Profile({ session }) {
             {uploadingAvatar ? '…' : '✎'}
           </div>
           <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: 'none' }}
-            onChange={e => uploadImage(e.target.files?.[0], 'avatar', 'avatar_url', setUploadingAvatar)} />
+            onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f, 'avatar', 'avatar_url', setUploadingAvatar) }} />
         </div>
 
         <div style={{ display: 'flex', gap: 8, paddingBottom: 6, flexWrap: 'wrap' }}>
-          {/* Theme button */}
-          <button
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'transparent', border: `1px solid ${t.border2}`, borderRadius: 10, color: t.text, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
-            onClick={() => setShowThemes(!showThemes)}
-          >
+          <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'transparent', border: `1px solid ${t.border2}`, borderRadius: 10, color: t.text, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+            onClick={() => setShowThemes(!showThemes)}>
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: t.accent, flexShrink: 0 }} />
             Theme
           </button>
@@ -168,14 +180,8 @@ export default function Profile({ session }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
             {allThemes.map(th => (
               <div key={th.id}
-                style={{
-                  borderRadius: 12, border: `2px solid ${themeId === th.id ? th.accent : th.border}`,
-                  padding: '10px 8px', cursor: 'pointer', background: th.bg,
-                  boxShadow: themeId === th.id ? `0 0 0 1px ${th.accent}` : 'none',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                }}
-                onClick={() => setTheme(th.id)}
-              >
+                style={{ borderRadius: 12, border: `2px solid ${themeId === th.id ? th.accent : th.border}`, padding: '10px 8px', cursor: 'pointer', background: th.bg, boxShadow: themeId === th.id ? `0 0 0 1px ${th.accent}` : 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}
+                onClick={() => setTheme(th.id)}>
                 <div style={{ width: 24, height: 24, borderRadius: '50%', background: th.accent, border: `2px solid ${th.surface}` }} />
                 <div style={{ fontSize: 9, color: th.text, fontWeight: 600, textAlign: 'center', lineHeight: 1.2 }}>{th.label}</div>
                 {themeId === th.id && <div style={{ fontSize: 9, color: th.accent }}>✓</div>}
@@ -231,10 +237,9 @@ export default function Profile({ session }) {
             <div key={room.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, background: t.surface, border: `1px solid ${t.border}`, borderRadius: 14, marginBottom: 8 }}>
               <div
                 style={{ width: 48, height: 48, borderRadius: 10, backgroundSize: 'cover', backgroundPosition: 'center', flexShrink: 0, position: 'relative', cursor: 'pointer', overflow: 'hidden', backgroundImage: room.cover_image ? `url(${room.cover_image})` : undefined, background: room.cover_image ? undefined : `linear-gradient(135deg,${t.surface2},${t.bg3})` }}
-                onClick={e => triggerCoverUpload(e, room)}
-              >
-                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
-                  {uploadingCover === room.id ? '...' : '📷'}
+                onClick={e => triggerCoverUpload(e, room)}>
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
+                  {uploadingCover === room.id ? '⏳' : '📷'}
                 </div>
               </div>
               <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => navigate(`/room/${room.id}`)}>
@@ -257,7 +262,8 @@ export default function Profile({ session }) {
             <span>Joined</span><div style={{ flex: 1, height: 1, background: t.border }} />
           </div>
           {joinedRooms.map(room => (
-            <div key={room.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, background: t.surface, border: `1px solid ${t.border}`, borderRadius: 14, marginBottom: 8, cursor: 'pointer' }} onClick={() => navigate(`/room/${room.id}`)}>
+            <div key={room.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, background: t.surface, border: `1px solid ${t.border}`, borderRadius: 14, marginBottom: 8, cursor: 'pointer' }}
+              onClick={() => navigate(`/room/${room.id}`)}>
               <div style={{ width: 48, height: 48, borderRadius: 10, backgroundSize: 'cover', backgroundPosition: 'center', flexShrink: 0, backgroundImage: room.cover_image ? `url(${room.cover_image})` : undefined, background: room.cover_image ? undefined : `linear-gradient(135deg,${t.surface2},${t.bg3})` }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: t.text, marginBottom: 2 }}>{room.name}</div>
@@ -272,11 +278,13 @@ export default function Profile({ session }) {
       {rooms.length === 0 && joinedRooms.length === 0 && (
         <div style={{ textAlign: 'center', padding: '48px 20px' }}>
           <div style={{ fontSize: 15, color: t.text3, marginBottom: 16 }}>No rooms yet</div>
-          <button style={{ padding: '12px 24px', background: `linear-gradient(135deg,${t.accent},${t.accent2})`, border: 'none', borderRadius: 12, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => navigate('/')}>Find a conversation</button>
+          <button style={{ padding: '12px 24px', background: `linear-gradient(135deg,${t.accent},${t.accent2})`, border: 'none', borderRadius: 12, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+            onClick={() => navigate('/')}>Find a conversation</button>
         </div>
       )}
 
-      <div style={{ height: 40 }} />
+      <div style={{ height: 100 }} />
+      <BottomNav />
     </div>
   )
 }
