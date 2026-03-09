@@ -1,222 +1,163 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.jsx'
+import { useTheme } from '../context/ThemeContext.jsx'
 
-function timeAgo(ts) {
-  const diff = Math.floor((Date.now() - new Date(ts)) / 1000)
-  if (diff < 60) return 'just now'
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  return `${Math.floor(diff / 86400)}d ago`
-}
-
-export default function DMChat({ session }) {
-  const { convId } = useParams()
+export default function UserProfile({ session }) {
+  const { userId } = useParams()
   const navigate = useNavigate()
-  const [messages, setMessages] = useState([])
-  const [otherUser, setOtherUser] = useState(null)
-  const [text, setText] = useState('')
-  const [sending, setSending] = useState(false)
-  const bottomRef = useRef(null)
-  const inputRef = useRef(null)
+  const { theme: t } = useTheme()
+  const [profile, setProfile] = useState(null)
+  const [rooms, setRooms] = useState([])
+  const [isFollowing, setIsFollowing] = useState(false)
+  const [followerCount, setFollowerCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
+  const [followLoading, setFollowLoading] = useState(false)
+  const isOwnProfile = session.user.id === userId
 
-  useEffect(() => {
-    fetchConv()
-    fetchMessages()
+  useEffect(() => { fetchProfile(); fetchFollowData(); fetchRooms() }, [userId])
 
-    const channel = supabase
-      .channel(`dm_${convId}`)
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'dm_messages',
-        filter: `conversation_id=eq.${convId}`
-      }, payload => {
-        setMessages(prev => [...prev, payload.new])
-        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
-      })
-      .subscribe()
-
-    return () => supabase.removeChannel(channel)
-  }, [convId])
-
-  async function fetchConv() {
-    const { data } = await supabase
-      .from('dm_conversations').select('user_a, user_b').eq('id', convId).single()
-    if (!data) return
-    const otherId = data.user_a === session.user.id ? data.user_b : data.user_a
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', otherId).single()
-    setOtherUser(profile)
+  async function fetchProfile() {
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
+    setProfile(data)
   }
 
-  async function fetchMessages() {
-    const { data } = await supabase
-      .from('dm_messages')
-      .select('*')
-      .eq('conversation_id', convId)
-      .order('created_at', { ascending: true })
-    setMessages(data || [])
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'auto' }), 100)
+  async function fetchFollowData() {
+    const [{ count: followers }, { count: following }, followCheck] = await Promise.all([
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
+      supabase.from('follows').select('id').eq('follower_id', session.user.id).eq('following_id', userId).maybeSingle(),
+    ])
+    setFollowerCount(followers || 0)
+    setFollowingCount(following || 0)
+    setIsFollowing(!!followCheck.data)
   }
 
-  async function sendMessage() {
-    const content = text.trim()
-    if (!content || sending) return
-    setSending(true)
-    setText('')
-
-    await supabase.from('dm_messages').insert({
-      conversation_id: convId,
-      sender_id: session.user.id,
-      content,
-    })
-
-    // Update last_message_at on conversation
-    await supabase.from('dm_conversations')
-      .update({ last_message_at: new Date().toISOString() })
-      .eq('id', convId)
-
-    setSending(false)
-    inputRef.current?.focus()
+  async function fetchRooms() {
+    const { data } = await supabase.from('rooms').select('*').eq('owner_id', userId).eq('is_private', false)
+    setRooms(data || [])
   }
 
-  function handleKey(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
+  async function toggleFollow() {
+    setFollowLoading(true)
+    if (isFollowing) {
+      await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('following_id', userId)
+      setIsFollowing(false); setFollowerCount(c => c - 1)
+    } else {
+      await supabase.from('follows').insert({ follower_id: session.user.id, following_id: userId })
+      setIsFollowing(true); setFollowerCount(c => c + 1)
+    }
+    setFollowLoading(false)
   }
 
-  function getInitials(name) {
-    return (name || '').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
+  async function startDM() {
+    const [user_a, user_b] = [session.user.id, userId].sort()
+    const { data: existing } = await supabase.from('dm_conversations').select('id').eq('user_a', user_a).eq('user_b', user_b).maybeSingle()
+    if (existing) { navigate(`/messages/${existing.id}`); return }
+    const { data: created } = await supabase.from('dm_conversations').insert({ user_a, user_b }).select('id').single()
+    if (created) navigate(`/messages/${created.id}`)
   }
 
-  const otherName = otherUser?.display_name || otherUser?.username || 'Someone'
+  function getInitials(name) { return (name || '').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?' }
 
-  // Group consecutive messages by sender
-  const grouped = messages.reduce((acc, msg, i) => {
-    const prev = messages[i - 1]
-    const isMe = msg.sender_id === session.user.id
-    const sameSenderAsPrev = prev && prev.sender_id === msg.sender_id
-    acc.push({ ...msg, isMe, sameSenderAsPrev })
-    return acc
-  }, [])
+  if (!profile) return (
+    <div style={{ background: t.bg, height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.text3, fontFamily: "'DM Sans',sans-serif", fontSize: '14px' }}>
+      Loading...
+    </div>
+  )
+
+  const name = profile.display_name || profile.username || 'Someone'
 
   return (
-    <div style={s.wrap}>
-      {/* HEADER */}
-      <div style={s.header}>
-        <button style={s.backBtn} onClick={() => navigate('/messages')}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
+    <div style={{ minHeight: '100vh', background: t.bg, color: t.text, fontFamily: "'DM Sans','Helvetica Neue',sans-serif" }}>
+
+      {/* BANNER */}
+      <div style={{
+        position: 'relative', height: '160px',
+        backgroundImage: profile.banner_url ? `url(${profile.banner_url})` : undefined,
+        backgroundSize: 'cover', backgroundPosition: 'center',
+        background: profile.banner_url ? undefined : `linear-gradient(135deg,${t.surface} 0%,${t.surface2} 50%,${t.surface} 100%)`,
+      }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.1),rgba(0,0,0,0.5))' }} />
+        <button style={{ position: 'absolute', top: '14px', left: '14px', width: '34px', height: '34px', borderRadius: '10px', background: `${t.bg}aa`, border: `1px solid ${t.border2}`, color: t.text, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(4px)', zIndex: 2 }}
+          onClick={() => navigate(-1)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
         </button>
-        <div style={s.headerUser} onClick={() => otherUser && navigate(`/user/${otherUser.id}`)}>
-          <div style={s.headerAvatar}>
-            {otherUser?.avatar_url
-              ? <img src={otherUser.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={otherName} />
-              : <span style={s.headerAvatarText}>{getInitials(otherName)}</span>
-            }
-          </div>
-          <div>
-            <div style={s.headerName}>{otherName}</div>
-            {otherUser?.username && <div style={s.headerUsername}>@{otherUser.username}</div>}
-          </div>
-        </div>
-        <div style={{ width: '34px' }} />
       </div>
 
-      {/* MESSAGES */}
-      <div style={s.msgArea}>
-        {grouped.length === 0 && (
-          <div style={s.emptyChat}>
-            <div style={s.emptyChatIcon}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(192,0,58,0.35)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-            </div>
-            <div style={s.emptyChatText}>Start the conversation with {otherName.split(' ')[0]}</div>
+      {/* AVATAR ROW */}
+      <div style={{ padding: '0 20px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: '-36px', position: 'relative', zIndex: 3, flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ width: '72px', height: '72px', borderRadius: '18px', background: `linear-gradient(135deg,${t.accent},${t.accent2})`, border: `3px solid ${t.bg}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+          {profile.avatar_url
+            ? <img src={profile.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={name} />
+            : <span style={{ fontFamily: "'Space Mono',monospace", fontSize: '20px', fontWeight: '700', color: 'rgba(255,255,255,0.9)' }}>{getInitials(name)}</span>
+          }
+        </div>
+
+        {!isOwnProfile && (
+          <div style={{ display: 'flex', gap: '8px', paddingBottom: '6px' }}>
+            <button
+              style={{ padding: '8px 18px', background: isFollowing ? 'transparent' : `linear-gradient(135deg,${t.accent},${t.accent2})`, border: isFollowing ? `1px solid ${t.border2}` : 'none', borderRadius: '10px', color: isFollowing ? t.text2 : '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}
+              onClick={toggleFollow} disabled={followLoading}>
+              {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
+            </button>
+            <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '10px', color: t.text2, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' }}
+              onClick={startDM}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+              Message
+            </button>
           </div>
         )}
 
-        {grouped.map((msg, i) => {
-          const isLast = i === grouped.length - 1 || grouped[i + 1]?.sender_id !== msg.sender_id
-          return (
-            <div key={msg.id} style={{
-              ...s.msgWrap,
-              justifyContent: msg.isMe ? 'flex-end' : 'flex-start',
-              marginBottom: isLast ? '12px' : '2px',
-            }}>
-              {!msg.isMe && !msg.sameSenderAsPrev && (
-                <div style={s.otherAvatar}>
-                  {otherUser?.avatar_url
-                    ? <img src={otherUser.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={otherName} />
-                    : <span style={s.otherAvatarText}>{getInitials(otherName)}</span>
-                  }
-                </div>
-              )}
-              {!msg.isMe && msg.sameSenderAsPrev && <div style={s.avatarSpacer} />}
+        {isOwnProfile && (
+          <button style={{ padding: '8px 16px', background: 'transparent', border: `1px solid ${t.border2}`, borderRadius: '10px', color: t.text, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '6px' }}
+            onClick={() => navigate('/profile')}>Edit profile</button>
+        )}
+      </div>
 
-              <div style={{
-                ...s.bubble,
-                ...(msg.isMe ? s.bubbleMe : s.bubbleThem),
-                borderRadius: msg.isMe
-                  ? (msg.sameSenderAsPrev ? '16px 6px 6px 16px' : '16px 6px 16px 16px')
-                  : (msg.sameSenderAsPrev ? '6px 16px 16px 6px' : '6px 16px 16px 6px'),
-              }}>
-                <div style={s.bubbleText}>{msg.content}</div>
-                {isLast && <div style={{ ...s.bubbleTime, textAlign: msg.isMe ? 'right' : 'left' }}>{timeAgo(msg.created_at)}</div>}
-              </div>
+      {/* INFO */}
+      <div style={{ padding: '16px 20px 0' }}>
+        <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: '22px', fontWeight: '700', color: t.text, letterSpacing: '-0.02em', marginBottom: '2px' }}>{name}</div>
+        <div style={{ fontSize: '13px', color: t.text3, marginBottom: '8px' }}>@{profile.username}</div>
+        {profile.bio && <div style={{ fontSize: '14px', color: t.text2, lineHeight: 1.6 }}>{profile.bio}</div>}
+      </div>
+
+      {/* STATS */}
+      <div style={{ display: 'flex', alignItems: 'center', margin: '20px 20px 0', background: t.pillBg, border: `1px solid ${t.border}`, borderRadius: '16px', padding: '16px' }}>
+        {[['Followers', followerCount], ['Following', followingCount], ['Rooms', rooms.length]].map(([label, num], i) => (
+          <>
+            {i > 0 && <div key={`d${i}`} style={{ width: '1px', height: '32px', background: t.border2 }} />}
+            <div key={label} style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: '22px', fontWeight: '700', color: t.text }}>{num}</div>
+              <div style={{ fontSize: '10px', color: t.text3, marginTop: '2px', fontFamily: "'Space Mono',monospace" }}>{label}</div>
             </div>
-          )
-        })}
-        <div ref={bottomRef} />
+          </>
+        ))}
       </div>
 
-      {/* INPUT */}
-      <div style={s.inputBar}>
-        <textarea
-          ref={inputRef}
-          style={s.input}
-          placeholder={`Message ${otherName.split(' ')[0]}...`}
-          value={text}
-          onChange={e => setText(e.target.value)}
-          onKeyDown={handleKey}
-          rows={1}
-        />
-        <button
-          style={{ ...s.sendBtn, opacity: text.trim() ? 1 : 0.4 }}
-          onClick={sendMessage}
-          disabled={!text.trim() || sending}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
-        </button>
-      </div>
+      {/* PUBLIC ROOMS */}
+      {rooms.length > 0 && (
+        <div style={{ padding: '24px 20px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '10px', color: t.text3, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '12px', fontFamily: "'Space Mono',monospace" }}>
+            <span>Rooms by {name.split(' ')[0]}</span><div style={{ flex: 1, height: '1px', background: t.border }} />
+          </div>
+          {rooms.map(room => (
+            <div key={room.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', background: t.surface, border: `1px solid ${t.border}`, borderRadius: '14px', marginBottom: '8px', cursor: 'pointer' }}
+              onClick={() => navigate(`/room/${room.id}`)}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '10px', flexShrink: 0, backgroundSize: 'cover', backgroundPosition: 'center', backgroundImage: room.cover_image ? `url(${room.cover_image})` : undefined, background: room.cover_image ? undefined : `linear-gradient(135deg,${t.surface2},${t.bg3})` }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: t.text, marginBottom: '2px' }}>{room.name}</div>
+                {room.topic && <div style={{ fontSize: '12px', color: t.text3, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{room.topic}</div>}
+              </div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.text3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ height: '48px' }} />
     </div>
   )
-}
-
-const s = {
-  wrap: { height: '100vh', display: 'flex', flexDirection: 'column', background: '#070003', color: '#f5e0ea', fontFamily: "'DM Sans','Helvetica Neue',sans-serif" },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 14px', borderBottom: '1px solid rgba(192,0,58,0.1)', flexShrink: 0, background: '#070003' },
-  backBtn: { width: '34px', height: '34px', borderRadius: '10px', background: '#1a0010', border: '1px solid rgba(245,224,234,0.07)', color: '#f5e0ea', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
-  headerUser: { display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' },
-  headerAvatar: { width: '34px', height: '34px', borderRadius: '10px', background: 'linear-gradient(135deg,#c0003a,#900030)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 },
-  headerAvatarText: { fontFamily: "'Space Mono',monospace", fontSize: '10px', fontWeight: '700', color: 'white' },
-  headerName: { fontSize: '15px', fontWeight: '600', color: '#f5e0ea', lineHeight: 1.2 },
-  headerUsername: { fontSize: '11px', color: 'rgba(245,224,234,0.35)' },
-  msgArea: { flex: 1, overflowY: 'auto', padding: '16px 14px 8px', display: 'flex', flexDirection: 'column' },
-  emptyChat: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', textAlign: 'center', padding: '40px 20px' },
-  emptyChatIcon: { marginBottom: '4px' },
-  emptyChatText: { fontSize: '14px', color: 'rgba(245,224,234,0.3)', lineHeight: 1.5 },
-  msgWrap: { display: 'flex', alignItems: 'flex-end', gap: '7px' },
-  otherAvatar: { width: '26px', height: '26px', borderRadius: '8px', background: 'linear-gradient(135deg,#c0003a,#900030)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  otherAvatarText: { fontFamily: "'Space Mono',monospace", fontSize: '7px', fontWeight: '700', color: 'white' },
-  avatarSpacer: { width: '26px', flexShrink: 0 },
-  bubble: { maxWidth: '72%', padding: '9px 13px' },
-  bubbleMe: { background: 'linear-gradient(135deg,#c0003a,#900030)', borderRadius: '16px 6px 16px 16px' },
-  bubbleThem: { background: '#1a0010', border: '1px solid rgba(192,0,58,0.15)', borderRadius: '6px 16px 16px 6px' },
-  bubbleText: { fontSize: '14px', color: '#f5e0ea', lineHeight: 1.5, wordBreak: 'break-word' },
-  bubbleTime: { fontSize: '9px', color: 'rgba(245,224,234,0.35)', marginTop: '4px', fontFamily: "'Space Mono',monospace" },
-  inputBar: { display: 'flex', alignItems: 'flex-end', gap: '10px', padding: '12px 14px 24px', borderTop: '1px solid rgba(192,0,58,0.1)', background: '#070003', flexShrink: 0 },
-  input: { flex: 1, padding: '11px 14px', background: '#1a0010', border: '1px solid rgba(192,0,58,0.2)', borderRadius: '14px', color: '#f5e0ea', fontSize: '14px', outline: 'none', fontFamily: 'inherit', resize: 'none', maxHeight: '120px', lineHeight: 1.5 },
-  sendBtn: { width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg,#c0003a,#900030)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 },
 }
