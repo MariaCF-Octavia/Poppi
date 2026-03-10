@@ -12,21 +12,19 @@ import DMChat from './pages/DMChat'
 import Notifications from './pages/Notifications'
 
 export default function App() {
-  const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [session, setSession] = useState(undefined)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setLoading(false)
+      setSession(session ?? null)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
+      setSession(session ?? null)
     })
     return () => subscription.unsubscribe()
   }, [])
 
-  if (loading) return (
+  if (session === undefined) return (
     <div style={{
       height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: '#070003', color: '#f5e0ea',
