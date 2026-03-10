@@ -24,6 +24,7 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Still loading — don't know auth state yet
   if (session === undefined) return (
     <div style={{
       height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -35,17 +36,28 @@ export default function App() {
     </div>
   )
 
+  // Signed out — show loading screen while redirect happens
+  if (session === null) return (
+    <ThemeProvider>
+      <Routes>
+        <Route path="*" element={<Navigate to="/auth" />} />
+        <Route path="/auth" element={<Auth />} />
+      </Routes>
+    </ThemeProvider>
+  )
+
+  // Signed in — render full app, session is guaranteed to be defined here
   return (
     <ThemeProvider>
       <Routes>
-        <Route path="/auth"              element={!session ? <Auth /> : <Navigate to="/" />} />
-        <Route path="/"                  element={session ? <Home session={session} /> : <Navigate to="/auth" />} />
-        <Route path="/room/:id"          element={session ? <Room session={session} /> : <Navigate to="/auth" />} />
-        <Route path="/profile"           element={session ? <Profile session={session} /> : <Navigate to="/auth" />} />
-        <Route path="/user/:userId"      element={session ? <UserProfile session={session} /> : <Navigate to="/auth" />} />
-        <Route path="/messages"          element={session ? <Messages session={session} /> : <Navigate to="/auth" />} />
-        <Route path="/messages/:convId"  element={session ? <DMChat session={session} /> : <Navigate to="/auth" />} />
-        <Route path="/notifications"     element={session ? <Notifications session={session} /> : <Navigate to="/auth" />} />
+        <Route path="/auth"              element={<Navigate to="/" />} />
+        <Route path="/"                  element={<Home session={session} />} />
+        <Route path="/room/:id"          element={<Room session={session} />} />
+        <Route path="/profile"           element={<Profile session={session} />} />
+        <Route path="/user/:userId"      element={<UserProfile session={session} />} />
+        <Route path="/messages"          element={<Messages session={session} />} />
+        <Route path="/messages/:convId"  element={<DMChat session={session} />} />
+        <Route path="/notifications"     element={<Notifications session={session} />} />
       </Routes>
     </ThemeProvider>
   )
