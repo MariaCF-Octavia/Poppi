@@ -14,6 +14,7 @@ export default function Profile({ session }) {
   const navigate = useNavigate()
   const { theme, themeId, setTheme, allThemes } = useTheme()
   const t = theme
+  const userId = session?.user?.id
   const [profile, setProfile] = useState(null)
   const [rooms, setRooms] = useState([])
   const [joinedRooms, setJoinedRooms] = useState([])
@@ -30,48 +31,49 @@ export default function Profile({ session }) {
   const coverInputRef = useRef(null)
   const coverRoomRef = useRef(null)
 
-  useEffect(() => { fetchProfile(); fetchRooms() }, [])
+  useEffect(() => {
+    if (!userId) return
+    fetchProfile()
+    fetchRooms()
+  }, [userId])
 
   async function fetchProfile() {
-    const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
+    if (!userId) return
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
     if (data) { setProfile(data); setDisplayName(data.display_name || ''); setBio(data.bio || '') }
   }
 
   async function fetchRooms() {
-    const { data: created } = await supabase.from('rooms').select('*').eq('owner_id', session.user.id)
+    if (!userId) return
+    const { data: created } = await supabase.from('rooms').select('*').eq('owner_id', userId)
     setRooms(created || [])
-    const { data: memberships } = await supabase.from('room_members').select('room_id, rooms(*)').eq('user_id', session.user.id)
-    const joined = (memberships || []).map(m => m.rooms).filter(r => r && r.owner_id !== session.user.id)
+    const { data: memberships } = await supabase.from('room_members').select('room_id, rooms(*)').eq('user_id', userId)
+    const joined = (memberships || []).map(m => m.rooms).filter(r => r && r.owner_id !== userId)
     setJoinedRooms(joined)
   }
 
   async function saveProfile(e) {
-    e.preventDefault(); setSaving(true)
-    await supabase.from('profiles').update({ display_name: displayName.trim(), bio: bio.trim() }).eq('id', session.user.id)
+    e.preventDefault()
+    if (!userId) return
+    setSaving(true)
+    await supabase.from('profiles').update({ display_name: displayName.trim(), bio: bio.trim() }).eq('id', userId)
     setProfile(prev => ({ ...prev, display_name: displayName.trim(), bio: bio.trim() }))
     setEditing(false); setSaving(false)
   }
 
   async function uploadImage(file, pathKey, dbField, setUploading) {
-    if (!file) return
+    if (!file || !userId) return
     setUploading(true)
     try {
       const ext = file.name.split('.').pop().toLowerCase()
-      const path = `${session.user.id}/${pathKey}-${Date.now()}.${ext}`
+      const path = `${userId}/${pathKey}-${Date.now()}.${ext}`
       const { data: uploadData, error } = await supabase.storage
         .from('avatars')
         .upload(path, file, { upsert: true, contentType: file.type })
-      if (error) {
-        alert(`Upload failed: ${error.message}`)
-        return
-      }
+      if (error) { alert(`Upload failed: ${error.message}`); return }
       const url = makePublicUrl(uploadData?.path || path)
-      const { error: dbError } = await supabase.from('profiles').update({ [dbField]: url }).eq('id', session.user.id)
-      if (dbError) {
-        alert(`Save failed: ${dbError.message}`)
-        return
-      }
-      // Update local state immediately — no refetch needed
+      const { error: dbError } = await supabase.from('profiles').update({ [dbField]: url }).eq('id', userId)
+      if (dbError) { alert(`Save failed: ${dbError.message}`); return }
       setProfile(prev => ({ ...prev, [dbField]: url }))
     } catch (err) {
       alert(`Unexpected error: ${err.message}`)
@@ -89,7 +91,7 @@ export default function Profile({ session }) {
   async function uploadRoomCover(e) {
     const file = e.target.files?.[0]
     const room = coverRoomRef.current
-    if (!file || !room) return
+    if (!file || !room || !userId) return
     setUploadingCover(room.id)
     try {
       const ext = file.name.split('.').pop().toLowerCase()
@@ -125,18 +127,17 @@ export default function Profile({ session }) {
   return (
     <div style={{ minHeight: '100vh', background: t.bg, color: t.text, fontFamily: "'DM Sans','Helvetica Neue',sans-serif" }}>
 
-      {/* BANNER */}
-      <div style={{
-        position: 'relative', height: '180px', backgroundSize: 'cover', backgroundPosition: 'center',
-        backgroundImage: profile.banner_url ? `url(${profile.banner_url})` : undefined,
-        background: profile.banner_url ? undefined : `linear-gradient(135deg,${t.surface} 0%,${t.surface2} 50%,${t.surface} 100%)`,
-      }}>
+      {/* BANNER — fixed img tag */}
+      <div style={{ position: 'relative', height: '180px', overflow: 'hidden', background: `linear-gradient(135deg,${t.surface} 0%,${t.surface2} 50%,${t.surface} 100%)` }}>
+        {profile.banner_url && (
+          <img src={profile.banner_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.1),rgba(0,0,0,0.45))' }} />
-        <button style={{ position: 'absolute', top: 14, left: 14, width: 34, height: 34, borderRadius: 10, background: `${t.bg}cc`, border: `1px solid ${t.border2}`, color: t.text, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(4px)', zIndex: 2 }}
+        <button style={{ position: 'absolute', top: 14, left: 14, width: 34, height: 34, borderRadius: 10, background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 2 }}
           onClick={() => navigate('/')}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
         </button>
-        <button style={{ position: 'absolute', bottom: 12, right: 14, padding: '6px 12px', background: `${t.bg}cc`, border: `1px solid ${t.border2}`, borderRadius: 10, color: t.text2, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', backdropFilter: 'blur(4px)', zIndex: 2 }}
+        <button style={{ position: 'absolute', bottom: 12, right: 14, padding: '6px 12px', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 10, color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', zIndex: 2 }}
           onClick={() => bannerInputRef.current?.click()}>
           {uploadingBanner ? 'Uploading...' : '📷 Change banner'}
         </button>
@@ -235,9 +236,11 @@ export default function Profile({ session }) {
           </div>
           {rooms.map(room => (
             <div key={room.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, background: t.surface, border: `1px solid ${t.border}`, borderRadius: 14, marginBottom: 8 }}>
-              <div
-                style={{ width: 48, height: 48, borderRadius: 10, backgroundSize: 'cover', backgroundPosition: 'center', flexShrink: 0, position: 'relative', cursor: 'pointer', overflow: 'hidden', backgroundImage: room.cover_image ? `url(${room.cover_image})` : undefined, background: room.cover_image ? undefined : `linear-gradient(135deg,${t.surface2},${t.bg3})` }}
+              <div style={{ width: 48, height: 48, borderRadius: 10, flexShrink: 0, position: 'relative', cursor: 'pointer', overflow: 'hidden', background: `linear-gradient(135deg,${t.surface2},${t.bg3})` }}
                 onClick={e => triggerCoverUpload(e, room)}>
+                {room.cover_image && (
+                  <img src={room.cover_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                )}
                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
                   {uploadingCover === room.id ? '⏳' : '📷'}
                 </div>
@@ -264,7 +267,11 @@ export default function Profile({ session }) {
           {joinedRooms.map(room => (
             <div key={room.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, background: t.surface, border: `1px solid ${t.border}`, borderRadius: 14, marginBottom: 8, cursor: 'pointer' }}
               onClick={() => navigate(`/room/${room.id}`)}>
-              <div style={{ width: 48, height: 48, borderRadius: 10, backgroundSize: 'cover', backgroundPosition: 'center', flexShrink: 0, backgroundImage: room.cover_image ? `url(${room.cover_image})` : undefined, background: room.cover_image ? undefined : `linear-gradient(135deg,${t.surface2},${t.bg3})` }} />
+              <div style={{ width: 48, height: 48, borderRadius: 10, flexShrink: 0, overflow: 'hidden', background: `linear-gradient(135deg,${t.surface2},${t.bg3})` }}>
+                {room.cover_image && (
+                  <img src={room.cover_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                )}
+              </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: t.text, marginBottom: 2 }}>{room.name}</div>
                 {room.topic && <div style={{ fontSize: 12, color: t.text3, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{room.topic}</div>}

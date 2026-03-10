@@ -21,21 +21,25 @@ export default function DMChat({ session }) {
   const [sending, setSending] = useState(false)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
+  const userId = session?.user?.id
 
   useEffect(() => {
-    fetchConv(); fetchMessages()
+    if (!userId) return
+    fetchConv()
+    fetchMessages()
     const channel = supabase.channel(`dm_${convId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dm_messages', filter: `conversation_id=eq.${convId}` }, payload => {
         setMessages(prev => [...prev, payload.new])
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
       }).subscribe()
     return () => supabase.removeChannel(channel)
-  }, [convId])
+  }, [convId, userId])
 
   async function fetchConv() {
+    if (!userId) return
     const { data } = await supabase.from('dm_conversations').select('user_a, user_b').eq('id', convId).single()
     if (!data) return
-    const otherId = data.user_a === session.user.id ? data.user_b : data.user_a
+    const otherId = data.user_a === userId ? data.user_b : data.user_a
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', otherId).single()
     setOtherUser(profile)
   }
@@ -47,9 +51,10 @@ export default function DMChat({ session }) {
   }
 
   async function sendMessage() {
-    const content = text.trim(); if (!content || sending) return
+    const content = text.trim()
+    if (!content || sending || !userId) return
     setSending(true); setText('')
-    await supabase.from('dm_messages').insert({ conversation_id: convId, sender_id: session.user.id, content })
+    await supabase.from('dm_messages').insert({ conversation_id: convId, sender_id: userId, content })
     await supabase.from('dm_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', convId)
     setSending(false); inputRef.current?.focus()
   }
@@ -61,7 +66,7 @@ export default function DMChat({ session }) {
 
   const grouped = messages.reduce((acc, msg, i) => {
     const prev = messages[i - 1]
-    acc.push({ ...msg, isMe: msg.sender_id === session.user.id, sameSenderAsPrev: prev && prev.sender_id === msg.sender_id })
+    acc.push({ ...msg, isMe: msg.sender_id === userId, sameSenderAsPrev: prev && prev.sender_id === msg.sender_id })
     return acc
   }, [])
 

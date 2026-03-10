@@ -18,26 +18,28 @@ export default function Messages({ session }) {
   const { theme: t } = useTheme()
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(true)
+  const userId = session?.user?.id
 
   useEffect(() => {
+    if (!userId) return
     fetchConversations()
     const channel = supabase.channel('dm_inbox')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dm_messages' }, () => fetchConversations())
       .subscribe()
     return () => supabase.removeChannel(channel)
-  }, [])
+  }, [userId])
 
   async function fetchConversations() {
-    const uid = session.user.id
+    if (!userId) return
     const { data: convs } = await supabase.from('dm_conversations')
       .select('id, user_a, user_b, last_message_at, created_at')
-      .or(`user_a.eq.${uid},user_b.eq.${uid}`)
+      .or(`user_a.eq.${userId},user_b.eq.${userId}`)
       .order('last_message_at', { ascending: false })
 
     if (!convs || convs.length === 0) { setConversations([]); setLoading(false); return }
 
     const enriched = await Promise.all(convs.map(async conv => {
-      const otherId = conv.user_a === uid ? conv.user_b : conv.user_a
+      const otherId = conv.user_a === userId ? conv.user_b : conv.user_a
       const [{ data: profile }, { data: lastMsgs }] = await Promise.all([
         supabase.from('profiles').select('display_name, username, avatar_url').eq('id', otherId).single(),
         supabase.from('dm_messages').select('content, created_at, sender_id').eq('conversation_id', conv.id).order('created_at', { ascending: false }).limit(1),
@@ -57,8 +59,6 @@ export default function Messages({ session }) {
 
   return (
     <div style={{ minHeight: '100vh', background: t.bg, color: t.text, fontFamily: "'DM Sans','Helvetica Neue',sans-serif" }}>
-
-      {/* HEADER */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 16px 16px', borderBottom: `1px solid ${t.border}`, position: 'sticky', top: 0, background: t.bg, zIndex: 10 }}>
         <button style={{ width: '34px', height: '34px', borderRadius: '10px', background: t.surface, border: `1px solid ${t.border}`, color: t.text, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
           onClick={() => navigate('/')}>
@@ -91,7 +91,7 @@ export default function Messages({ session }) {
             const username = conv.otherProfile?.username || ''
             const avatarUrl = conv.otherProfile?.avatar_url
             const lastMsg = conv.lastMsg
-            const isMe = lastMsg?.sender_id === session.user.id
+            const isMe = lastMsg?.sender_id === userId
 
             return (
               <div key={conv.id}
