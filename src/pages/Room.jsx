@@ -28,6 +28,7 @@ const BOT_IDS = {
 }
 
 const REACTION_EMOJIS = ['❤️', '😂', '😮', '😡', '👏', '🔥']
+const MAX_CHARS = 2000
 
 function timeAgo(ts) {
   const diff = Math.floor((Date.now() - new Date(ts)) / 1000)
@@ -60,12 +61,15 @@ export default function Room({ session }) {
   const isTypingRef = useRef(false)
   const presenceChannelRef = useRef(null)
 
+  const userId = session?.user?.id
+
   useEffect(() => {
     const timer = setInterval(() => setTick(n => n + 1), 30000)
     return () => clearInterval(timer)
   }, [])
 
   useEffect(() => {
+    if (!userId) return
     fetchRoom(); fetchMessages()
 
     const msgChannel = supabase.channel(`room-${id}`)
@@ -82,16 +86,20 @@ export default function Room({ session }) {
         }
       }).subscribe()
 
-    const presenceChannel = supabase.channel(`typing-${id}`, { config: { presence: { key: session.user.id } } })
+    const presenceChannel = supabase.channel(`typing-${id}`, { config: { presence: { key: userId } } })
     presenceChannel.on('presence', { event: 'sync' }, () => {
       const state = presenceChannel.presenceState()
-      const typers = Object.values(state).flat().filter(p => p.user_id !== session.user.id && p.typing).map(p => p.name)
+      const typers = Object.values(state).flat().filter(p => p.user_id !== userId && p.typing).map(p => p.name)
       setTypingUsers([...new Set(typers)])
     }).subscribe()
     presenceChannelRef.current = presenceChannel
 
-    return () => { supabase.removeChannel(msgChannel); supabase.removeChannel(presenceChannel) }
-  }, [id])
+    return () => {
+      supabase.removeChannel(msgChannel)
+      supabase.removeChannel(presenceChannel)
+      presenceChannelRef.current = null
+    }
+  }, [id, userId])
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
   useEffect(() => {
@@ -115,14 +123,14 @@ export default function Room({ session }) {
   }
 
   async function fetchReactions(msgIds) {
-    if (!msgIds || msgIds.length === 0) return
+    if (!msgIds || msgIds.length === 0 || !userId) return
     const { data } = await supabase.from('reactions').select('*').in('message_id', msgIds)
     if (data) {
       const rxns = {}; const mine = {}
       data.forEach(r => {
         if (!rxns[r.message_id]) rxns[r.message_id] = {}
         rxns[r.message_id][r.emoji] = (rxns[r.message_id][r.emoji] || 0) + 1
-        if (r.user_id === session.user.id) mine[r.message_id] = r.emoji
+        if (r.user_id === userId) mine[r.message_id] = r.emoji
       })
       setReactions(rxns); setMyReactions(mine)
     }
@@ -143,25 +151,29 @@ export default function Room({ session }) {
   }
 
   async function handleTyping(e) {
-    setNewMsg(e.target.value)
-    if (!presenceChannelRef.current) return
+    const val = e.target.value
+    if (val.length > MAX_CHARS) return
+    setNewMsg(val)
+    if (!presenceChannelRef.current || !userId) return
     if (!isTypingRef.current) {
       isTypingRef.current = true
-      const { data: prof } = await supabase.from('profiles').select('display_name, username').eq('id', session.user.id).single()
-      presenceChannelRef.current.track({ user_id: session.user.id, name: prof?.display_name || prof?.username || 'Someone', typing: true })
+      const { data: prof } = await supabase.from('profiles').select('display_name, username').eq('id', userId).single()
+      presenceChannelRef.current.track({ user_id: userId, name: prof?.display_name || prof?.username || 'Someone', typing: true })
     }
     clearTimeout(typingTimeoutRef.current)
     typingTimeoutRef.current = setTimeout(() => {
       isTypingRef.current = false
-      presenceChannelRef.current?.track({ user_id: session.user.id, name: '', typing: false })
+      presenceChannelRef.current?.track({ user_id: userId, name: '', typing: false })
     }, 2000)
   }
 
   async function toggleReaction(msgId, emoji, e) {
-    e.stopPropagation(); setReactionPicker(null)
+    e.stopPropagation()
+    if (!userId) return
+    setReactionPicker(null)
     const existing = myReactions[msgId]
     if (existing === emoji) {
-      await supabase.from('reactions').delete().eq('message_id', msgId).eq('user_id', session.user.id)
+      await supabase.from('reactions').delete().eq('message_id', msgId).eq('user_id', userId)
       setMyReactions(prev => { const n = {...prev}; delete n[msgId]; return n })
       setReactions(prev => {
         const n = JSON.parse(JSON.stringify(prev))
@@ -169,8 +181,8 @@ export default function Room({ session }) {
         return n
       })
     } else {
-      if (existing) await supabase.from('reactions').delete().eq('message_id', msgId).eq('user_id', session.user.id)
-      const { error } = await supabase.from('reactions').insert({ message_id: msgId, user_id: session.user.id, emoji })
+      if (existing) await supabase.from('reactions').delete().eq('message_id', msgId).eq('user_id', userId)
+      const { error } = await supabase.from('reactions').insert({ message_id: msgId, user_id: userId, emoji })
       if (!error) {
         setMyReactions(prev => ({...prev, [msgId]: emoji}))
         setReactions(prev => {
@@ -183,10 +195,11 @@ export default function Room({ session }) {
   }
 
   async function sendMessage(e) {
-    e.preventDefault(); if (!newMsg.trim()) return
+    e.preventDefault()
+    if (!newMsg.trim() || !userId) return
     isTypingRef.current = false; clearTimeout(typingTimeoutRef.current)
-    presenceChannelRef.current?.track({ user_id: session.user.id, name: '', typing: false })
-    await supabase.from('messages').insert({ room_id: id, user_id: session.user.id, content: newMsg.trim() })
+    presenceChannelRef.current?.track({ user_id: userId, name: '', typing: false })
+    await supabase.from('messages').insert({ room_id: id, user_id: userId, content: newMsg.trim() })
     setNewMsg(''); inputRef.current?.focus()
   }
 
@@ -224,6 +237,8 @@ export default function Room({ session }) {
   )
 
   const messageGroups = groupMessages(messages)
+  const charsLeft = MAX_CHARS - newMsg.length
+  const isNearLimit = charsLeft <= 200
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: t.bg, color: t.text, fontFamily: "'DM Sans','Helvetica Neue',sans-serif" }}
@@ -250,9 +265,7 @@ export default function Room({ session }) {
           </div>
           <button
             style={{ width: '34px', height: '34px', borderRadius: '10px', background: copied ? t.pillBg : t.surface, border: `1px solid ${copied ? t.accent : t.border}`, color: copied ? t.accent : t.text2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s' }}
-            onClick={copyInviteLink}
-            title="Copy invite link"
-          >
+            onClick={copyInviteLink} title="Copy invite link">
             {copied
               ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
               : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
@@ -277,7 +290,7 @@ export default function Room({ session }) {
         {messages.length === 0 && <div style={{ color: t.text3, textAlign: 'center', marginTop: '40px', fontSize: '13px', fontStyle: 'italic' }}>Starting conversation...</div>}
 
         {messageGroups.map((group, gi) => {
-          const isOwn = group.user_id === session.user.id
+          const isOwn = group.user_id === userId
           const name = group.profile?.display_name || group.profile?.username || 'Unknown'
           const username = group.profile?.username || ''
           const avatarUrl = group.profile?.avatar_url
@@ -374,21 +387,28 @@ export default function Room({ session }) {
       </div>
 
       {/* INPUT */}
-      <form style={{ flexShrink: 0, padding: '10px 16px 20px', borderTop: `1px solid ${t.border}`, display: 'flex', gap: '8px', alignItems: 'center', background: t.bg2 }} onSubmit={sendMessage}>
-        <input
-          ref={inputRef}
-          style={{ flex: 1, background: t.surface, border: `1px solid ${t.border}`, borderRadius: '12px', padding: '12px 16px', color: t.text, fontSize: '14px', outline: 'none', fontFamily: 'inherit' }}
-          placeholder="Say something..."
-          value={newMsg}
-          onChange={handleTyping}
-          autoComplete="off"
-        />
-        <button style={{ width: '42px', height: '42px', borderRadius: '12px', background: `linear-gradient(135deg,${t.accent},${t.accent2})`, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: newMsg.trim() ? 1 : 0.4, transition: 'opacity 0.15s' }}
-          type="submit" disabled={!newMsg.trim()}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
-        </button>
+      <form style={{ flexShrink: 0, padding: '10px 16px 20px', borderTop: `1px solid ${t.border}`, background: t.bg2 }} onSubmit={sendMessage}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <input
+            ref={inputRef}
+            style={{ flex: 1, background: t.surface, border: `1px solid ${isNearLimit ? t.accent + '88' : t.border}`, borderRadius: '12px', padding: '12px 16px', color: t.text, fontSize: '14px', outline: 'none', fontFamily: 'inherit' }}
+            placeholder="Say something..."
+            value={newMsg}
+            onChange={handleTyping}
+            autoComplete="off"
+          />
+          <button style={{ width: '42px', height: '42px', borderRadius: '12px', background: `linear-gradient(135deg,${t.accent},${t.accent2})`, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: newMsg.trim() ? 1 : 0.4, transition: 'opacity 0.15s' }}
+            type="submit" disabled={!newMsg.trim()}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        </div>
+        {isNearLimit && (
+          <div style={{ fontSize: '10px', color: charsLeft <= 0 ? '#ff4444' : t.text3, textAlign: 'right', marginTop: '4px', fontFamily: "'Space Mono',monospace" }}>
+            {charsLeft} characters left
+          </div>
+        )}
       </form>
 
       <style>{`@keyframes typingBounce { 0%,60%,100% { transform:translateY(0);opacity:0.4; } 30% { transform:translateY(-4px);opacity:1; } }`}</style>
