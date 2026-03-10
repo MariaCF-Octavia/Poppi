@@ -9,28 +9,41 @@ export default function UserProfile({ session }) {
   const { theme: t } = useTheme()
   const [profile, setProfile] = useState(null)
   const [rooms, setRooms] = useState([])
-  const [isFollowing, setIsFollowing] = useState(false)
-  const [followerCount, setFollowerCount] = useState(0)
-  const [followingCount, setFollowingCount] = useState(0)
-  const [followLoading, setFollowLoading] = useState(false)
+  const [friendStatus, setFriendStatus] = useState(null) // null | 'pending_sent' | 'pending_received' | 'accepted'
+  const [friendId, setFriendId] = useState(null)
+  const [friendCount, setFriendCount] = useState(0)
+  const [actionLoading, setActionLoading] = useState(false)
   const isOwnProfile = session.user.id === userId
 
-  useEffect(() => { fetchProfile(); fetchFollowData(); fetchRooms() }, [userId])
+  useEffect(() => { fetchProfile(); fetchFriendData(); fetchRooms() }, [userId])
 
   async function fetchProfile() {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
     setProfile(data)
   }
 
-  async function fetchFollowData() {
-    const [{ count: followers }, { count: following }, followCheck] = await Promise.all([
-      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
-      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
-      supabase.from('follows').select('id').eq('follower_id', session.user.id).eq('following_id', userId).maybeSingle(),
-    ])
-    setFollowerCount(followers || 0)
-    setFollowingCount(following || 0)
-    setIsFollowing(!!followCheck.data)
+  async function fetchFriendData() {
+    // Check friendship in both directions
+    const { data: sent } = await supabase.from('friendships')
+      .select('id, status').eq('requester_id', session.user.id).eq('recipient_id', userId).maybeSingle()
+    const { data: received } = await supabase.from('friendships')
+      .select('id, status').eq('requester_id', userId).eq('recipient_id', session.user.id).maybeSingle()
+
+    if (sent) {
+      setFriendId(sent.id)
+      setFriendStatus(sent.status === 'accepted' ? 'accepted' : 'pending_sent')
+    } else if (received) {
+      setFriendId(received.id)
+      setFriendStatus(received.status === 'accepted' ? 'accepted' : 'pending_received')
+    } else {
+      setFriendStatus(null)
+      setFriendId(null)
+    }
+
+    // Count accepted friends
+    const { count } = await supabase.from('friendships').select('*', { count: 'exact', head: true })
+      .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`).eq('status', 'accepted')
+    setFriendCount(count || 0)
   }
 
   async function fetchRooms() {
@@ -38,16 +51,36 @@ export default function UserProfile({ session }) {
     setRooms(data || [])
   }
 
-  async function toggleFollow() {
-    setFollowLoading(true)
-    if (isFollowing) {
-      await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('following_id', userId)
-      setIsFollowing(false); setFollowerCount(c => c - 1)
-    } else {
-      await supabase.from('follows').insert({ follower_id: session.user.id, following_id: userId })
-      setIsFollowing(true); setFollowerCount(c => c + 1)
-    }
-    setFollowLoading(false)
+  async function sendFriendRequest() {
+    setActionLoading(true)
+    await supabase.from('friendships').insert({ requester_id: session.user.id, recipient_id: userId })
+    setFriendStatus('pending_sent')
+    setActionLoading(false)
+  }
+
+  async function cancelFriendRequest() {
+    setActionLoading(true)
+    await supabase.from('friendships').delete().eq('id', friendId)
+    setFriendStatus(null)
+    setFriendId(null)
+    setActionLoading(false)
+  }
+
+  async function acceptFriendRequest() {
+    setActionLoading(true)
+    await supabase.from('friendships').update({ status: 'accepted' }).eq('id', friendId)
+    setFriendStatus('accepted')
+    setFriendCount(c => c + 1)
+    setActionLoading(false)
+  }
+
+  async function removeFriend() {
+    setActionLoading(true)
+    await supabase.from('friendships').delete().eq('id', friendId)
+    setFriendStatus(null)
+    setFriendId(null)
+    setFriendCount(c => Math.max(0, c - 1))
+    setActionLoading(false)
   }
 
   async function startDM() {
@@ -60,6 +93,33 @@ export default function UserProfile({ session }) {
 
   function getInitials(name) { return (name || '').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?' }
 
+  function FriendButton() {
+    if (friendStatus === 'accepted') return (
+      <button style={{ padding: '8px 18px', background: 'transparent', border: `1px solid ${t.border2}`, borderRadius: '10px', color: t.text2, fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}
+        onClick={removeFriend} disabled={actionLoading}>
+        {actionLoading ? '...' : 'Friends'}
+      </button>
+    )
+    if (friendStatus === 'pending_sent') return (
+      <button style={{ padding: '8px 18px', background: 'transparent', border: `1px solid ${t.border2}`, borderRadius: '10px', color: t.text3, fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}
+        onClick={cancelFriendRequest} disabled={actionLoading}>
+        {actionLoading ? '...' : 'Requested'}
+      </button>
+    )
+    if (friendStatus === 'pending_received') return (
+      <button style={{ padding: '8px 18px', background: `linear-gradient(135deg,${t.accent},${t.accent2})`, border: 'none', borderRadius: '10px', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}
+        onClick={acceptFriendRequest} disabled={actionLoading}>
+        {actionLoading ? '...' : 'Accept'}
+      </button>
+    )
+    return (
+      <button style={{ padding: '8px 18px', background: `linear-gradient(135deg,${t.accent},${t.accent2})`, border: 'none', borderRadius: '10px', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}
+        onClick={sendFriendRequest} disabled={actionLoading}>
+        {actionLoading ? '...' : 'Add friend'}
+      </button>
+    )
+  }
+
   if (!profile) return (
     <div style={{ background: t.bg, height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.text3, fontFamily: "'DM Sans',sans-serif", fontSize: '14px' }}>
       Loading...
@@ -71,15 +131,13 @@ export default function UserProfile({ session }) {
   return (
     <div style={{ minHeight: '100vh', background: t.bg, color: t.text, fontFamily: "'DM Sans','Helvetica Neue',sans-serif" }}>
 
-      {/* BANNER */}
-      <div style={{
-        position: 'relative', height: '160px',
-        backgroundImage: profile.banner_url ? `url(${profile.banner_url})` : undefined,
-        backgroundSize: 'cover', backgroundPosition: 'center',
-        background: profile.banner_url ? undefined : `linear-gradient(135deg,${t.surface} 0%,${t.surface2} 50%,${t.surface} 100%)`,
-      }}>
+      {/* BANNER — fixed img tag approach */}
+      <div style={{ position: 'relative', height: '160px', overflow: 'hidden', background: `linear-gradient(135deg,${t.surface} 0%,${t.surface2} 50%,${t.surface} 100%)` }}>
+        {profile.banner_url && (
+          <img src={profile.banner_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.1),rgba(0,0,0,0.5))' }} />
-        <button style={{ position: 'absolute', top: '14px', left: '14px', width: '34px', height: '34px', borderRadius: '10px', background: `${t.bg}aa`, border: `1px solid ${t.border2}`, color: t.text, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(4px)', zIndex: 2 }}
+        <button style={{ position: 'absolute', top: '14px', left: '14px', width: '34px', height: '34px', borderRadius: '10px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 2 }}
           onClick={() => navigate(-1)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
         </button>
@@ -96,11 +154,7 @@ export default function UserProfile({ session }) {
 
         {!isOwnProfile && (
           <div style={{ display: 'flex', gap: '8px', paddingBottom: '6px' }}>
-            <button
-              style={{ padding: '8px 18px', background: isFollowing ? 'transparent' : `linear-gradient(135deg,${t.accent},${t.accent2})`, border: isFollowing ? `1px solid ${t.border2}` : 'none', borderRadius: '10px', color: isFollowing ? t.text2 : '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}
-              onClick={toggleFollow} disabled={followLoading}>
-              {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
-            </button>
+            <FriendButton />
             <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '10px', color: t.text2, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' }}
               onClick={startDM}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
@@ -124,7 +178,7 @@ export default function UserProfile({ session }) {
 
       {/* STATS */}
       <div style={{ display: 'flex', alignItems: 'center', margin: '20px 20px 0', background: t.pillBg, border: `1px solid ${t.border}`, borderRadius: '16px', padding: '16px' }}>
-        {[['Followers', followerCount], ['Following', followingCount], ['Rooms', rooms.length]].map(([label, num], i) => (
+        {[['Friends', friendCount], ['Rooms', rooms.length]].map(([label, num], i) => (
           <>
             {i > 0 && <div key={`d${i}`} style={{ width: '1px', height: '32px', background: t.border2 }} />}
             <div key={label} style={{ flex: 1, textAlign: 'center' }}>
@@ -144,7 +198,13 @@ export default function UserProfile({ session }) {
           {rooms.map(room => (
             <div key={room.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', background: t.surface, border: `1px solid ${t.border}`, borderRadius: '14px', marginBottom: '8px', cursor: 'pointer' }}
               onClick={() => navigate(`/room/${room.id}`)}>
-              <div style={{ width: '44px', height: '44px', borderRadius: '10px', flexShrink: 0, backgroundSize: 'cover', backgroundPosition: 'center', backgroundImage: room.cover_image ? `url(${room.cover_image})` : undefined, background: room.cover_image ? undefined : `linear-gradient(135deg,${t.surface2},${t.bg3})` }} />
+              {/* FIXED: img tag for room thumbnail */}
+              <div style={{ width: '44px', height: '44px', borderRadius: '10px', flexShrink: 0, overflow: 'hidden', background: `linear-gradient(135deg,${t.surface2},${t.bg3})` }}>
+                {room.cover_image
+                  ? <img src={room.cover_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  : null
+                }
+              </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '14px', fontWeight: '600', color: t.text, marginBottom: '2px' }}>{room.name}</div>
                 {room.topic && <div style={{ fontSize: '12px', color: t.text3, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{room.topic}</div>}
