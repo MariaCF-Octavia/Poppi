@@ -33,7 +33,6 @@ export default function UserProfile({ session }) {
       .select('id, status').eq('requester_id', myId).eq('recipient_id', userId).maybeSingle()
     const { data: received } = await supabase.from('friendships')
       .select('id, status').eq('requester_id', userId).eq('recipient_id', myId).maybeSingle()
-
     if (sent) {
       setFriendId(sent.id)
       setFriendStatus(sent.status === 'accepted' ? 'accepted' : 'pending_sent')
@@ -43,7 +42,6 @@ export default function UserProfile({ session }) {
     } else {
       setFriendStatus(null); setFriendId(null)
     }
-
     const { count } = await supabase.from('friendships').select('*', { count: 'exact', head: true })
       .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`).eq('status', 'accepted')
     setFriendCount(count || 0)
@@ -114,7 +112,7 @@ export default function UserProfile({ session }) {
   }
 
   if (!profile) return (
-    <div style={{ background: t.bg, height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.text3, fontFamily: "'DM Sans',sans-serif", fontSize: '14px' }}>
+    <div style={{ background: t.bg, height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.text3, fontFamily: 'DM Sans,sans-serif', fontSize: '14px' }}>
       Loading...
     </div>
   )
@@ -122,9 +120,8 @@ export default function UserProfile({ session }) {
   const name = profile.display_name || profile.username || 'Someone'
 
   return (
-    <div style={{ minHeight: '100vh', background: t.bg, color: t.text, fontFamily: "'DM Sans','Helvetica Neue',sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: t.bg, color: t.text, fontFamily: 'DM Sans,Helvetica Neue,sans-serif' }}>
 
-      {/* BANNER */}
       <div style={{ position: 'relative', height: '160px', overflow: 'hidden', background: `linear-gradient(135deg,${t.surface} 0%,${t.surface2} 50%,${t.surface} 100%)` }}>
         {profile.banner_url && (
           <img src={profile.banner_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -136,15 +133,13 @@ export default function UserProfile({ session }) {
         </button>
       </div>
 
-      {/* AVATAR ROW */}
       <div style={{ padding: '0 20px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: '-36px', position: 'relative', zIndex: 3, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ width: '72px', height: '72px', borderRadius: '18px', background: `linear-gradient(135deg,${t.accent},${t.accent2})`, border: `3px solid ${t.bg}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           {profile.avatar_url
             ? <img src={profile.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={name} />
-            : <span style={{ fontFamily: "'Space Mono',monospace", fontSize: '20px', fontWeight: '700', color: 'rgba(255,255,255,0.9)' }}>{getInitials(name)}</span>
+            : <span style={{ fontFamily: 'Space Mono,monospace', fontSize: '20px', fontWeight: '700', color: 'rgba(255,255,255,0.9)' }}>{getInitials(name)}</span>
           }
         </div>
-
         {!isOwnProfile && (
           <div style={{ display: 'flex', gap: '8px', paddingBottom: '6px' }}>
             <FriendButton />
@@ -155,37 +150,33 @@ export default function UserProfile({ session }) {
             </button>
           </div>
         )}
-
         {isOwnProfile && (
           <button style={{ padding: '8px 16px', background: 'transparent', border: `1px solid ${t.border2}`, borderRadius: '10px', color: t.text, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '6px' }}
             onClick={() => navigate('/profile')}>Edit profile</button>
         )}
       </div>
 
-      {/* INFO */}
       <div style={{ padding: '16px 20px 0' }}>
-        <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: '22px', fontWeight: '700', color: t.text, letterSpacing: '-0.02em', marginBottom: '2px' }}>{name}</div>
+        <div style={{ fontFamily: 'Playfair Display,Georgia,serif', fontSize: '22px', fontWeight: '700', color: t.text, letterSpacing: '-0.02em', marginBottom: '2px' }}>{name}</div>
         <div style={{ fontSize: '13px', color: t.text3, marginBottom: '8px' }}>@{profile.username}</div>
         {profile.bio && <div style={{ fontSize: '14px', color: t.text2, lineHeight: 1.6 }}>{profile.bio}</div>}
       </div>
 
-      {/* STATS */}
       <div style={{ display: 'flex', alignItems: 'center', margin: '20px 20px 0', background: t.pillBg, border: `1px solid ${t.border}`, borderRadius: '16px', padding: '16px' }}>
         {[['Friends', friendCount], ['Rooms', rooms.length]].map(([label, num], i) => (
           <>
             {i > 0 && <div key={`d${i}`} style={{ width: '1px', height: '32px', background: t.border2 }} />}
             <div key={label} style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: '22px', fontWeight: '700', color: t.text }}>{num}</div>
-              <div style={{ fontSize: '10px', color: t.text3, marginTop: '2px', fontFamily: "'Space Mono',monospace" }}>{label}</div>
+              <div style={{ fontFamily: 'Playfair Display,Georgia,serif', fontSize: '22px', fontWeight: '700', color: t.text }}>{num}</div>
+              <div style={{ fontSize: '10px', color: t.text3, marginTop: '2px', fontFamily: 'Space Mono,monospace' }}>{label}</div>
             </div>
           </>
         ))}
       </div>
 
-      {/* PUBLIC ROOMS */}
       {rooms.length > 0 && (
         <div style={{ padding: '24px 20px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '10px', color: t.text3, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '12px', fontFamily: "'Space Mono',monospace" }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '10px', color: t.text3, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '12px', fontFamily: 'Space Mono,monospace' }}>
             <span>Rooms by {name.split(' ')[0]}</span><div style={{ flex: 1, height: '1px', background: t.border }} />
           </div>
           {rooms.map(room => (
@@ -198,9 +189,7 @@ export default function UserProfile({ session }) {
                 <div style={{ fontSize: '14px', fontWeight: '600', color: t.text, marginBottom: '2px' }}>{room.name}</div>
                 {room.topic && <div style={{ fontSize: '12px', color: t.text3, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{room.topic}</div>}
               </div>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.text3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <path d="M9 18l6-6-6-6" />
-              </svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.text3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M9 18l6-6-6-6" /></svg>
             </div>
           ))}
         </div>
