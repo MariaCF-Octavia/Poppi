@@ -22,19 +22,19 @@ const ROOM_CATEGORIES = {
 }
 
 const ROOM_DESCRIPTIONS = {
-  'No Ring After 4 Years':  'She moved in after year one. Two years of living together later — still no proposal. When does patience become self-betrayal? Come in if you\'ve been there, if you\'re there now, or if you have something honest to say.',
+  'No Ring After 4 Years':  "She moved in after year one. Two years of living together later — still no proposal. When does patience become self-betrayal? Come in if you've been there, if you're there now, or if you have something honest to say.",
   'Gulf War 3.0':           'The buildup everyone saw coming is here. Civilians are queuing for fuel, the information war is already running, and the geopolitics are messier than 1991. What are you actually watching and what do you think happens next.',
-  "Trump's America":        'Family group chats exploding. Friendships ending. A country that can\'t agree on basic reality. Whether you\'re inside it or watching from outside — what does it look like from where you are.',
-  'Anthropic Watch':        'Claude 4 benchmarks dropped and they\'re interesting. Extended thinking, real-world performance, the alignment claims nobody else is making. For people who actually use this stuff and want to talk honestly about what it\'s doing.',
-  'AI Took My Job':         '11 years of motion graphics work. £800 a day. Gone in 18 months. This room is for the people living the transition, not theorising about it. What did you lose, what did you find, and what\'s actually true.',
-  'The Beauty Tax':         '£380 a month on what counts as the minimum. Hair, nails, the right kind of groomed. The tax that\'s invisible until you add it up and then you can\'t unsee it. What\'s yours, and are you angry about it.',
+  "Trump's America":        "Family group chats exploding. Friendships ending. A country that can't agree on basic reality. Whether you're inside it or watching from outside — what does it look like from where you are.",
+  'Anthropic Watch':        "Claude 4 benchmarks dropped and they're interesting. Extended thinking, real-world performance, the alignment claims nobody else is making. For people who actually use this stuff and want to talk honestly about what it's doing.",
+  'AI Took My Job':         "11 years of motion graphics work. £800 a day. Gone in 18 months. This room is for the people living the transition, not theorising about it. What did you lose, what did you find, and what's actually true.",
+  'The Beauty Tax':         "£380 a month on what counts as the minimum. Hair, nails, the right kind of groomed. The tax that's invisible until you add it up and then you can't unsee it. What's yours, and are you angry about it.",
   'The Bondi Files':        'Sydney from the inside — not the tourist version. Newcomers figuring it out, locals telling the truth about the city. Coffee, beaches, rent, the 45-minute warmup before Australians let you in.',
   'Gen Z vs Millennials':   'Millennials wrote the thinkpieces and kept working the jobs. Gen Z read them and quit. Is that fair? Is it even the right framing? Or are we all just getting played by the same broken system and arguing about skinny jeans.',
-  'Founder Life':           '4 months of runway. 18% MoM growth. The feeling where you\'re the only one who knows how thin the margin actually is. For founders who want real talk, not LinkedIn inspiration.',
-  'Stockholm Nights':       'The 45-minute silence before Swedes decide to be your best friend. Fredagsmys. The best cinnamon bun in the city and where to find it. Life in Stockholm from people who actually live here.',
-  'The Dating Audit':       'He confirmed the morning of. Then unmatched an hour before. Eight days of the best conversations she\'d had on an app in years. Gone. The apps are doing something to everyone\'s brain about how disposable people are.',
+  'Founder Life':           "4 months of runway. 18% MoM growth. The feeling where you're the only one who knows how thin the margin actually is. For founders who want real talk, not LinkedIn inspiration.",
+  'Stockholm Nights':       "The 45-minute silence before Swedes decide to be your best friend. Fredagsmys. The best cinnamon bun in the city and where to find it. Life in Stockholm from people who actually live here.",
+  'The Dating Audit':       "He confirmed the morning of. Then unmatched an hour before. Eight days of the best conversations she'd had on an app in years. Gone. The apps are doing something to everyone's brain about how disposable people are.",
   'Money Talks':            'Senior engineer. £95k. 6 years. Starting with numbers because salary secrecy only benefits employers. Come in with yours or come in to learn what you\'re worth.',
-  'Creative Block':         'Three months of nothing. Every piece feeling hollow before it\'s finished. A writer whose tank might have run out — or might just be full of grief they haven\'t looked at yet.',
+  'Creative Block':         "Three months of nothing. Every piece feeling hollow before it's finished. A writer whose tank might have run out — or might just be full of grief they haven't looked at yet.",
   'Side Hustle Season':     'First £1k month. ADHD planners, 7 months, 200 reviews, one product doing 60% of revenue. The stuff that actually works when you\'re building on the side.',
 }
 
@@ -223,8 +223,12 @@ export default function Home({ session }) {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 100 }} onClick={closePreview}>
           <div style={{ width: '100%', maxWidth: '500px', background: t.bg2, borderRadius: '24px 24px 0 0', maxHeight: '92vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
 
-            <div style={{ position: 'relative', height: '200px', backgroundSize: 'cover', backgroundPosition: 'center', flexShrink: 0, borderRadius: '24px 24px 0 0', overflow: 'hidden', backgroundImage: previewRoom.cover_image ? `url(${previewRoom.cover_image})` : undefined, background: previewRoom.cover_image ? undefined : `linear-gradient(135deg,${t.surface},${t.surface2})` }}>
-              <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to bottom,${t.bg}22 0%,${t.bg}dd 100%)` }} />
+            {/* MODAL COVER — img tag approach */}
+            <div style={{ position: 'relative', height: '200px', flexShrink: 0, borderRadius: '24px 24px 0 0', overflow: 'hidden', background: `linear-gradient(135deg,${t.surface},${t.surface2})` }}>
+              {previewRoom.cover_image && (
+                <img src={previewRoom.cover_image} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              )}
+              <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to bottom,transparent 0%,${t.bg}cc 100%)` }} />
               <button style={{ position: 'absolute', top: '14px', right: '14px', width: '30px', height: '30px', borderRadius: '50%', background: `${t.bg}aa`, border: `1px solid ${t.border2}`, color: t.text2, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', zIndex: 2, fontFamily: 'inherit' }} onClick={closePreview}>✕</button>
               <div style={{ position: 'absolute', bottom: '16px', left: '18px', right: '60px', zIndex: 2 }}>
                 {previewStage === 'about' && (
@@ -383,11 +387,17 @@ export default function Home({ session }) {
               return (
                 <div key={room.id} style={{ borderRadius: '16px', overflow: 'hidden', marginBottom: '12px', background: t.surface, border: `1px solid ${t.border}`, cursor: 'pointer', opacity: deleting === room.id ? 0.5 : 1 }}
                   onClick={e => openAbout(room, e)}>
-                  <div style={{ position: 'relative', height: '140px', backgroundSize: 'cover', backgroundPosition: 'center', backgroundImage: room.cover_image ? `url(${room.cover_image})` : undefined, background: room.cover_image ? undefined : `linear-gradient(135deg,${t.surface},${t.surface2})` }}>
-                    <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to bottom,${t.bg}08 0%,${t.bg}99 100%)` }} />
+
+                  {/* ROOM CARD IMAGE — img tag, bulletproof */}
+                  <div style={{ position: 'relative', height: '140px', overflow: 'hidden', background: `linear-gradient(135deg,${t.surface},${t.surface2})` }}>
+                    {room.cover_image && (
+                      <img src={room.cover_image} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    )}
+                    <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to bottom,transparent 0%,${t.bg}99 100%)` }} />
                     {isHot && <div style={{ position: 'absolute', top: '10px', left: '10px', fontSize: '10px', fontFamily: "'Space Mono',monospace", color: t.hot, background: `${t.bg}bb`, border: `1px solid ${t.hot}55`, padding: '3px 9px', borderRadius: '100px', letterSpacing: '0.06em' }}>🔥 HOT</div>}
                     <div style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '9px', fontFamily: "'Space Mono',monospace", color: t.text2, background: `${t.bg}99`, border: `1px solid ${t.border2}`, padding: '3px 9px', borderRadius: '100px', letterSpacing: '0.06em' }}>{cat}</div>
                   </div>
+
                   <div style={{ padding: '12px 14px 10px' }}>
                     <div style={{ fontSize: '16px', fontWeight: '700', color: t.text, fontFamily: "'Playfair Display',Georgia,serif", letterSpacing: '-0.01em', marginBottom: '4px' }}>{room.name}</div>
                     {room.topic && <div style={{ fontSize: '12px', color: t.text3, marginBottom: '6px', lineHeight: 1.4 }}>{room.topic}</div>}
@@ -448,7 +458,7 @@ export default function Home({ session }) {
             <div style={{ fontSize: '13px', color: t.text3 }}>Create the first one</div>
           </div>
         )}
-      <div style={{ height: '100px' }} />
+        <div style={{ height: '100px' }} />
       </div>
 
       <BottomNav onCreateRoom={() => setShowCreate(true)} />
