@@ -33,9 +33,9 @@ const ROOM_DESCRIPTIONS = {
   'Founder Life':           "4 months of runway. 18% MoM growth. The feeling where you're the only one who knows how thin the margin actually is. For founders who want real talk, not LinkedIn inspiration.",
   'Stockholm Nights':       "The 45-minute silence before Swedes decide to be your best friend. Fredagsmys. The best cinnamon bun in the city and where to find it. Life in Stockholm from people who actually live here.",
   'The Dating Audit':       "He confirmed the morning of. Then unmatched an hour before. Eight days of the best conversations she'd had on an app in years. Gone. The apps are doing something to everyone's brain about how disposable people are.",
-  'Money Talks':            'Senior engineer. £95k. 6 years. Starting with numbers because salary secrecy only benefits employers. Come in with yours or come in to learn what you\'re worth.',
+  'Money Talks':            "Senior engineer. £95k. 6 years. Starting with numbers because salary secrecy only benefits employers. Come in with yours or come in to learn what you're worth.",
   'Creative Block':         "Three months of nothing. Every piece feeling hollow before it's finished. A writer whose tank might have run out — or might just be full of grief they haven't looked at yet.",
-  'Side Hustle Season':     'First £1k month. ADHD planners, 7 months, 200 reviews, one product doing 60% of revenue. The stuff that actually works when you\'re building on the side.',
+  'Side Hustle Season':     "First £1k month. ADHD planners, 7 months, 200 reviews, one product doing 60% of revenue. The stuff that actually works when you're building on the side.",
 }
 
 const CATEGORY_OPTIONS = ['Politics', 'Tech', 'Culture', 'Relationships', 'Finance']
@@ -50,6 +50,7 @@ function timeAgo(ts) {
 
 export default function Home({ session }) {
   const { theme: t } = useTheme()
+  const userId = session?.user?.id
   const [rooms, setRooms] = useState([])
   const [roomPreviews, setRoomPreviews] = useState({})
   const [roomActivity, setRoomActivity] = useState({})
@@ -117,7 +118,8 @@ export default function Home({ session }) {
   function closePreview() { setPreviewRoom(null); setPreviewStage('about'); setPreviewMessages([]) }
 
   async function joinRoom(room) {
-    await supabase.from('room_members').upsert({ room_id: room.id, user_id: session.user.id })
+    if (!userId) return
+    await supabase.from('room_members').upsert({ room_id: room.id, user_id: userId })
     navigate(`/room/${room.id}`)
   }
 
@@ -148,12 +150,14 @@ export default function Home({ session }) {
   }
 
   async function createRoom(e) {
-    e.preventDefault(); setLoading(true)
+    e.preventDefault()
+    if (!userId) return
+    setLoading(true)
     const { data, error } = await supabase.from('rooms').insert({
-      name: roomName, topic: roomTopic, category: roomCategory, is_private: isPrivate, owner_id: session.user.id,
+      name: roomName, topic: roomTopic, category: roomCategory, is_private: isPrivate, owner_id: userId,
     }).select().single()
     if (!error && data) {
-      await supabase.from('room_members').insert({ room_id: data.id, user_id: session.user.id })
+      await supabase.from('room_members').insert({ room_id: data.id, user_id: userId })
       setShowCreate(false); setRoomName(''); setRoomTopic(''); setRoomCategory('Culture')
       navigate(`/room/${data.id}`)
     }
@@ -162,6 +166,7 @@ export default function Home({ session }) {
 
   async function deleteRoom(e, room) {
     e.stopPropagation(); e.preventDefault()
+    if (!userId) return
     if (!confirm(`Delete "${room.name}"?`)) return
     setDeleting(room.id)
     try {
@@ -223,24 +228,23 @@ export default function Home({ session }) {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 100 }} onClick={closePreview}>
           <div style={{ width: '100%', maxWidth: '500px', background: t.bg2, borderRadius: '24px 24px 0 0', maxHeight: '92vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
 
-            {/* MODAL COVER — img tag approach */}
-            <div style={{ position: 'relative', height: '200px', flexShrink: 0, borderRadius: '24px 24px 0 0', overflow: 'hidden', background: `linear-gradient(135deg,${t.surface},${t.surface2})` }}>
+            <div style={{ position: 'relative', flexShrink: 0, borderRadius: '24px 24px 0 0', overflow: 'hidden', background: `linear-gradient(135deg,${t.surface},${t.surface2})`, minHeight: '120px' }}>
               {previewRoom.cover_image && (
-                <img src={previewRoom.cover_image} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                <img src={previewRoom.cover_image} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />
               )}
-              <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to bottom,transparent 0%,${t.bg}cc 100%)` }} />
-              <button style={{ position: 'absolute', top: '14px', right: '14px', width: '30px', height: '30px', borderRadius: '50%', background: `${t.bg}aa`, border: `1px solid ${t.border2}`, color: t.text2, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', zIndex: 2, fontFamily: 'inherit' }} onClick={closePreview}>✕</button>
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,transparent 0%,rgba(0,0,0,0.75) 100%)' }} />
+              <button style={{ position: 'absolute', top: '14px', right: '14px', width: '30px', height: '30px', borderRadius: '50%', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', zIndex: 2, fontFamily: 'inherit' }} onClick={closePreview}>✕</button>
               <div style={{ position: 'absolute', bottom: '16px', left: '18px', right: '60px', zIndex: 2 }}>
                 {previewStage === 'about' && (
                   <>
                     <div style={{ display: 'inline-block', fontSize: '9px', fontFamily: "'Space Mono',monospace", color: t.accent, background: t.pillBg, border: `1px solid ${t.border2}`, padding: '3px 10px', borderRadius: '100px', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>{cat}</div>
-                    <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: '26px', fontWeight: '700', color: t.text, letterSpacing: '-0.02em', lineHeight: 1.15 }}>{previewRoom.name}</div>
+                    <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: '26px', fontWeight: '700', color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.15 }}>{previewRoom.name}</div>
                   </>
                 )}
                 {previewStage === 'conversation' && (
                   <>
-                    <button style={{ background: 'none', border: 'none', color: t.text2, fontSize: '13px', cursor: 'pointer', padding: '0 0 8px', fontFamily: 'inherit', display: 'block' }} onClick={() => setPreviewStage('about')}>← Back</button>
-                    <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: '18px', fontWeight: '700', color: t.text }}>{previewRoom.name}</div>
+                    <button style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.8)', fontSize: '13px', cursor: 'pointer', padding: '0 0 8px', fontFamily: 'inherit', display: 'block' }} onClick={() => setPreviewStage('about')}>← Back</button>
+                    <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: '18px', fontWeight: '700', color: '#fff' }}>{previewRoom.name}</div>
                   </>
                 )}
               </div>
@@ -384,20 +388,18 @@ export default function Home({ session }) {
               const preview = roomPreviews[room.id]
               const isHot = hotRoomIds.includes(room.id)
               const cat = getRoomCategory(room)
+              const isOwner = userId && room.owner_id === userId
               return (
                 <div key={room.id} style={{ borderRadius: '16px', overflow: 'hidden', marginBottom: '12px', background: t.surface, border: `1px solid ${t.border}`, cursor: 'pointer', opacity: deleting === room.id ? 0.5 : 1 }}
                   onClick={e => openAbout(room, e)}>
-
-                  {/* ROOM CARD IMAGE — img tag, bulletproof */}
-                  <div style={{ position: 'relative', height: '140px', overflow: 'hidden', background: `linear-gradient(135deg,${t.surface},${t.surface2})` }}>
+                  <div style={{ position: 'relative', overflow: 'hidden', background: `linear-gradient(135deg,${t.surface},${t.surface2})`, minHeight: room.cover_image ? '0' : '100px' }}>
                     {room.cover_image && (
-                      <img src={room.cover_image} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      <img src={room.cover_image} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />
                     )}
-                    <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to bottom,transparent 0%,${t.bg}99 100%)` }} />
-                    {isHot && <div style={{ position: 'absolute', top: '10px', left: '10px', fontSize: '10px', fontFamily: "'Space Mono',monospace", color: t.hot, background: `${t.bg}bb`, border: `1px solid ${t.hot}55`, padding: '3px 9px', borderRadius: '100px', letterSpacing: '0.06em' }}>🔥 HOT</div>}
-                    <div style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '9px', fontFamily: "'Space Mono',monospace", color: t.text2, background: `${t.bg}99`, border: `1px solid ${t.border2}`, padding: '3px 9px', borderRadius: '100px', letterSpacing: '0.06em' }}>{cat}</div>
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,transparent 0%,rgba(0,0,0,0.5) 100%)', pointerEvents: 'none' }} />
+                    {isHot && <div style={{ position: 'absolute', top: '10px', left: '10px', fontSize: '10px', fontFamily: "'Space Mono',monospace", color: t.hot, background: 'rgba(0,0,0,0.7)', border: `1px solid ${t.hot}55`, padding: '3px 9px', borderRadius: '100px', letterSpacing: '0.06em' }}>🔥 HOT</div>}
+                    <div style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '9px', fontFamily: "'Space Mono',monospace", color: '#fff', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', padding: '3px 9px', borderRadius: '100px', letterSpacing: '0.06em' }}>{cat}</div>
                   </div>
-
                   <div style={{ padding: '12px 14px 10px' }}>
                     <div style={{ fontSize: '16px', fontWeight: '700', color: t.text, fontFamily: "'Playfair Display',Georgia,serif", letterSpacing: '-0.01em', marginBottom: '4px' }}>{room.name}</div>
                     {room.topic && <div style={{ fontSize: '12px', color: t.text3, marginBottom: '6px', lineHeight: 1.4 }}>{room.topic}</div>}
@@ -410,7 +412,7 @@ export default function Home({ session }) {
                         <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: t.online }} />LIVE
                       </div>
                       {roomMemberCounts[room.id] > 0 && <div style={{ fontSize: '10px', color: t.text3, fontFamily: "'Space Mono',monospace" }}>{roomMemberCounts[room.id]} members</div>}
-                      {room.owner_id === session.user.id && (
+                      {isOwner && (
                         <button style={{ marginLeft: 'auto', background: t.surface2, border: `1px solid ${t.border}`, color: t.text3, width: '24px', height: '24px', borderRadius: '8px', cursor: 'pointer', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}
                           onClick={e => deleteRoom(e, room)}>{deleting === room.id ? '…' : '✕'}</button>
                       )}
@@ -429,6 +431,7 @@ export default function Home({ session }) {
             </div>
             {privateRooms.map(room => {
               const preview = roomPreviews[room.id]
+              const isOwner = userId && room.owner_id === userId
               return (
                 <div key={room.id} style={{ borderRadius: '16px', overflow: 'hidden', marginBottom: '12px', background: t.surface, border: `1px solid ${t.border}`, cursor: 'pointer', opacity: deleting === room.id ? 0.5 : 1 }}
                   onClick={e => openAbout(room, e)}>
@@ -440,7 +443,7 @@ export default function Home({ session }) {
                     {room.topic && <div style={{ fontSize: '12px', color: t.text3, marginBottom: '6px' }}>{room.topic}</div>}
                     {preview ? <div style={{ fontSize: '13px', marginBottom: '8px' }}><span style={{ color: t.accent, fontWeight: '600' }}>{preview.name}: </span><span style={{ color: t.text3 }}>{preview.text.slice(0, 80)}</span></div> : <div style={{ fontSize: '12px', color: t.text3, fontStyle: 'italic', marginBottom: '8px' }}>Invite only</div>}
                     <div style={{ display: 'flex', alignItems: 'center' }}>
-                      {room.owner_id === session.user.id && (
+                      {isOwner && (
                         <button style={{ marginLeft: 'auto', background: t.surface2, border: `1px solid ${t.border}`, color: t.text3, width: '24px', height: '24px', borderRadius: '8px', cursor: 'pointer', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           onClick={e => deleteRoom(e, room)}>{deleting === room.id ? '…' : '✕'}</button>
                       )}

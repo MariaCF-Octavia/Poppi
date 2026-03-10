@@ -15,11 +15,15 @@ function timeAgo(ts) {
 export default function Notifications({ session }) {
   const { theme: t } = useTheme()
   const navigate = useNavigate()
+  const userId = session?.user?.id
   const [pendingRequests, setPendingRequests] = useState([])
   const [unreadDMs, setUnreadDMs] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => {
+    if (!userId) return
+    fetchAll()
+  }, [userId])
 
   async function fetchAll() {
     setLoading(true)
@@ -28,26 +32,28 @@ export default function Notifications({ session }) {
   }
 
   async function fetchFriendRequests() {
+    if (!userId) return
     const { data } = await supabase
       .from('friendships')
       .select('id, created_at, requester_id, profiles!friendships_requester_id_fkey(id, username, display_name, avatar_url)')
-      .eq('recipient_id', session.user.id)
+      .eq('recipient_id', userId)
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
     setPendingRequests(data || [])
   }
 
   async function fetchUnreadDMs() {
+    if (!userId) return
     const { data: convos } = await supabase
       .from('dm_conversations')
       .select('id, user_a, user_b, last_message_at')
-      .or(`user_a.eq.${session.user.id},user_b.eq.${session.user.id}`)
+      .or(`user_a.eq.${userId},user_b.eq.${userId}`)
       .order('last_message_at', { ascending: false })
 
     if (!convos || convos.length === 0) { setUnreadDMs([]); return }
 
     const results = await Promise.all(convos.map(async convo => {
-      const otherId = convo.user_a === session.user.id ? convo.user_b : convo.user_a
+      const otherId = convo.user_a === userId ? convo.user_b : convo.user_a
       const { data: other } = await supabase.from('profiles').select('id, username, display_name, avatar_url').eq('id', otherId).single()
       const { data: lastMsg } = await supabase.from('dm_messages').select('content, created_at, read_at, sender_id')
         .eq('conversation_id', convo.id).order('created_at', { ascending: false }).limit(1).maybeSingle()
@@ -59,7 +65,7 @@ export default function Notifications({ session }) {
     setUnreadDMs(results.filter(r => r.lastMsg))
   }
 
-  async function acceptFriend(friendshipId, requesterId) {
+  async function acceptFriend(friendshipId) {
     await supabase.from('friendships').update({ status: 'accepted' }).eq('id', friendshipId)
     setPendingRequests(prev => prev.filter(r => r.id !== friendshipId))
   }
@@ -80,18 +86,13 @@ export default function Notifications({ session }) {
 
   return (
     <div style={{ minHeight: '100vh', background: t.bg, color: t.text, fontFamily: "'DM Sans','Helvetica Neue',sans-serif" }}>
-
-      {/* HEADER */}
       <div style={{ padding: '20px 20px 12px', position: 'sticky', top: 0, background: t.bg, zIndex: 10, borderBottom: `1px solid ${t.border}` }}>
         <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: '24px', fontWeight: '700', letterSpacing: '-0.02em', color: t.text }}>Notifications</div>
         <div style={{ fontSize: '11px', color: t.text3, marginTop: '2px' }}>Friend requests and messages</div>
       </div>
 
       <div style={{ padding: '16px 16px 0' }}>
-
-        {loading && (
-          <div style={{ textAlign: 'center', padding: '48px 0', color: t.text3, fontSize: '13px', fontStyle: 'italic' }}>Loading...</div>
-        )}
+        {loading && <div style={{ textAlign: 'center', padding: '48px 0', color: t.text3, fontSize: '13px', fontStyle: 'italic' }}>Loading...</div>}
 
         {!loading && !hasAnything && (
           <div style={{ textAlign: 'center', padding: '72px 20px' }}>
@@ -100,7 +101,6 @@ export default function Notifications({ session }) {
           </div>
         )}
 
-        {/* FRIEND REQUESTS — always at top */}
         {pendingRequests.length > 0 && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '10px', color: t.accent, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '12px', fontFamily: "'Space Mono',monospace" }}>
@@ -108,7 +108,6 @@ export default function Notifications({ session }) {
               <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: t.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#fff', fontWeight: '700' }}>{pendingRequests.length}</div>
               <div style={{ flex: 1, height: '1px', background: t.border }} />
             </div>
-
             {pendingRequests.map(req => {
               const name = req.profiles?.display_name || req.profiles?.username || 'Someone'
               return (
@@ -126,7 +125,7 @@ export default function Notifications({ session }) {
                   </div>
                   <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                     <button style={{ padding: '7px 14px', background: `linear-gradient(135deg,${t.accent},${t.accent2})`, border: 'none', borderRadius: '9px', color: '#fff', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}
-                      onClick={() => acceptFriend(req.id, req.requester_id)}>Accept</button>
+                      onClick={() => acceptFriend(req.id)}>Accept</button>
                     <button style={{ padding: '7px 12px', background: 'transparent', border: `1px solid ${t.border}`, borderRadius: '9px', color: t.text3, fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit' }}
                       onClick={() => declineFriend(req.id)}>Decline</button>
                   </div>
@@ -136,15 +135,14 @@ export default function Notifications({ session }) {
           </>
         )}
 
-        {/* DMs */}
         {unreadDMs.length > 0 && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '10px', color: t.text3, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '12px', marginTop: pendingRequests.length > 0 ? '24px' : '0', fontFamily: "'Space Mono',monospace" }}>
               <span>Messages</span><div style={{ flex: 1, height: '1px', background: t.border }} />
             </div>
-
             {unreadDMs.map(convo => {
               const name = convo.other?.display_name || convo.other?.username || 'Someone'
+              const isMe = convo.lastMsg?.sender_id === userId
               return (
                 <div key={convo.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', background: t.surface, border: `1px solid ${convo.unread > 0 ? t.accent + '44' : t.border}`, borderRadius: '16px', marginBottom: '10px', cursor: 'pointer' }}
                   onClick={() => navigate(`/messages/${convo.id}`)}>
@@ -165,7 +163,7 @@ export default function Notifications({ session }) {
                       <div style={{ fontSize: '10px', color: t.text3, fontFamily: "'Space Mono',monospace", flexShrink: 0, marginLeft: '8px' }}>{timeAgo(convo.lastMsg?.created_at)}</div>
                     </div>
                     <div style={{ fontSize: '12px', color: convo.unread > 0 ? t.text2 : t.text3, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                      {convo.lastMsg?.sender_id === session.user.id ? 'You: ' : ''}{convo.lastMsg?.content}
+                      {isMe ? 'You: ' : ''}{convo.lastMsg?.content}
                     </div>
                   </div>
                 </div>
@@ -176,7 +174,6 @@ export default function Notifications({ session }) {
 
         <div style={{ height: '100px' }} />
       </div>
-
       <BottomNav />
     </div>
   )
